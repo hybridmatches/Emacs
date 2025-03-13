@@ -67,7 +67,6 @@
   (global-unset-key (kbd "C-z"))
   (global-unset-key (kbd "s-p"))
   (setq disabled-command-function nil)
-  (define-key key-translation-map (kbd "ESC") (kbd "C-g")) ; works in gui only
 
   ;; utf-8 ;;
   (setq locale-coding-system 'utf-8)
@@ -77,7 +76,8 @@
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
 
-  (server-start)
+  (unless (eq system-type 'android)
+    (server-start))
   )
 
 (use-package exec-path-from-shell
@@ -238,6 +238,8 @@
    (setq ns-right-alternate-modifier 'meta)
    (setq ns-right-control-modifier 'control)
    (setq ns-control-modifier 'control)
+   (define-key key-translation-map (kbd "ESC") (kbd "C-g")) ; works in gui only
+
    ;;(setq ns-right-command-modifier 'hyper) ;; <- Currently unused, enough modifiers atm
    (add-hook 'ns-system-appearance-change-functions #'my/apply-theme)
    (defvar org-roam-directory "~/Documents/org")
@@ -476,8 +478,7 @@
   :bind (("s-u" . counsel-ace-link)
          :map prog-mode-map
          ("M-o" . ace-link-addr)
-         :map elfeed-show-mode-map
-         ("M-o" . ace-link-safari))
+         )
   :init
   (ace-link-setup-default)
   :config
@@ -1492,6 +1493,7 @@ you can catch it with `condition-case'."
          ;; If called with C-u then bring up the capture buffer
 	 ("t" . elfeed-show-trash)
          ("i" . open-youtube-in-iina)
+	 ("M-o" . ace-link-safari)
          )
 
   :hook
