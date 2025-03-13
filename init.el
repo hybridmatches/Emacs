@@ -274,22 +274,14 @@
      (if touch-screen-display-keyboard
 	 (progn
            (setq touch-screen-display-keyboard nil)
-           (tool-bar-add-item
-            "keyboard-off" 'android-toggle-keyboard
-            'android-toggle-keyboard
-            :help "Toggle keyboard")
            (message "Disable virtual keyboard"))
        (setq touch-screen-display-keyboard t)
-       (tool-bar-add-item
-	"keyboard" 'android-toggle-keyboard
-	'android-toggle-keyboard
-	:help "Toggle keyboard")
        (message "Enable virtual keyboard")))
 
    (tool-bar-add-item
-            "keyboard-off" 'android-toggle-keyboard
-            'android-toggle-keyboard
-            :help "Toggle keyboard")
+    "spell" 'android-toggle-keyboard
+    'android-toggle-keyboard
+    :help "Toggle keyboard")
 
    ;; (defun android-tool-bar-configs()
    ;;   (when (and (fboundp 'tool-bar-mode)
