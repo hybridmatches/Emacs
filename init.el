@@ -262,6 +262,7 @@
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
    (tool-bar-mode 1)
+   (menu-bar-mode -1)
    )
   
   (_ (error "Unhandled operating system %s" system-type))
