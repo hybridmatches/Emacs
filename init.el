@@ -261,8 +261,14 @@
    ;; Registers ;;
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
+   ;; Bars ;;
    (tool-bar-mode 1)
    (menu-bar-mode -1)
+   (tool-bar-add-item
+     "preferences-desktop-keyboard" ; icon
+     'android-toggle-soft-keyboard  ; function
+     'android-keyboard              ; property
+     :help "Toggle Android keyboard")
    )
   
   (_ (error "Unhandled operating system %s" system-type))
