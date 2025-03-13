@@ -264,9 +264,14 @@
    ;; Bars ;;
    (tool-bar-mode 1)
    (menu-bar-mode -1)
+
+   (defun android-toggle-keyboard ()
+     (interactive)
+     (android-toggle-on-screen-keyboard))
+   
    (tool-bar-add-item
-     "preferences-desktop-keyboard" ; icon
-     'android-toggle-soft-keyboard  ; function
+     "spell" ; icon
+     'android-toggle-keyboard  ; function
      'android-keyboard              ; property
      :help "Toggle Android keyboard")
    )
