@@ -228,53 +228,6 @@
 ;;   (add-to-list 'imenu-generic-expression
 ;;                (list "Headings" "^\\(?:[[:space:]]*[#]\\)+[[:space:]]+\\(.*\\)" 1)))
 
-;;; -> Look and feel -> Fonts
-
-;; First, let's define a list of fallback fonts that cover various scripts
-(defvar fallback-font-families
-  '(("Apple Color Emoji" . 140)            ; Apple Emojis
-    ("Noto Sans" . 140)                    ; General Unicode coverage
-    ("Noto Sans Egyptian Hieroglyphs" . 140) ; Hieroglyphs
-    ("Noto Sans Cuneiform" . 140)          ; Cuneiform
-    ("Noto Sans Linear B" . 140)           ; Linear B
-    ("Noto Sans Old Persian" . 140)        ; Old Persian
-    ("Noto Sans Phoenician" . 140)         ; Phoenician
-    ("Noto Sans Brahmi" . 140)             ; Brahmi
-    ("Noto Sans Gothic" . 140)             ; Gothic
-    ("Noto Sans Old Turkic" . 140)         ; Old Turkic
-    ("Noto Sans Imperial Aramaic" . 140)   ; Imperial Aramaic
-    ("Symbola" . 140)))                    ; General symbol fallback
-
-;; (set-fontset-font t '(#x10840 . #x1085F) "Noto Sans Imperial Aramaic")
-(set-fontset-font t 'symbol "Apple Color Emoji" nil 'prepend)
-(set-fontset-font t '(#x1F300 . #x1FAD6) "Apple Color Emoji") ;; Emoji range
-(set-fontset-font t '(#x1F600 . #x1F64F) "Apple Color Emoji") ;; Emoticons
-(set-fontset-font t '(#x1F900 . #x1F9FF) "Apple Color Emoji") ;; Supplemental Symbols and Pictographs
-(set-fontset-font t '(#x2600 . #x26FF) "Apple Color Emoji")   ;; Miscellaneous Symbols
-
-;; Create the fontset with correct XLFD syntax
-(create-fontset-from-fontset-spec
- (concat
-  "-*-Menlo-normal-normal-normal-*-14-*-*-*-m-0-fontset-unicode,"
-  (mapconcat
-   (lambda (font-spec)
-     (format "%s:-*-%s-normal-normal-normal-*-14-*-*-*-p-0-iso10646-1"
-             (car font-spec)
-             (car font-spec)))
-   fallback-font-families
-   ",")))
-
-(use-package mixed-pitch
-  :init
-  (set-face-attribute 'default nil :height 140)
-  (set-face-attribute 'default nil :family "Menlo" :height 140)
-  (set-face-attribute 'variable-pitch nil :family "Brygada 1918" :height 160)
-  ;; Add fallback fonts using set-fontset-font
-  (dolist (font fallback-font-families)
-    (set-fontset-font t nil (font-spec :family (car font)) nil 'append))
-  :custom
-  (mixed-pitch-set-height 160)
-  :hook text-mode)
 
 ;;; -> OS specific configuration
 
@@ -300,6 +253,55 @@
   
   (_ (error "Unhandled operating system %s" system-type))
   )
+
+;;; -> Look and feel -> Fonts
+
+(pcase system-type
+  ('darwin;; First, let's define a list of fallback fonts that cover various scripts
+   (defvar fallback-font-families
+     '(("Apple Color Emoji" . 140)            ; Apple Emojis
+       ("Noto Sans" . 140)                    ; General Unicode coverage
+       ("Noto Sans Egyptian Hieroglyphs" . 140) ; Hieroglyphs
+       ("Noto Sans Cuneiform" . 140)          ; Cuneiform
+       ("Noto Sans Linear B" . 140)           ; Linear B
+       ("Noto Sans Old Persian" . 140)        ; Old Persian
+       ("Noto Sans Phoenician" . 140)         ; Phoenician
+       ("Noto Sans Brahmi" . 140)             ; Brahmi
+       ("Noto Sans Gothic" . 140)             ; Gothic
+       ("Noto Sans Old Turkic" . 140)         ; Old Turkic
+       ("Noto Sans Imperial Aramaic" . 140)   ; Imperial Aramaic
+       ("Symbola" . 140)))                    ; General symbol fallback
+
+   ;; (set-fontset-font t '(#x10840 . #x1085F) "Noto Sans Imperial Aramaic")
+   (set-fontset-font t 'symbol "Apple Color Emoji" nil 'prepend)
+   (set-fontset-font t '(#x1F300 . #x1FAD6) "Apple Color Emoji") ;; Emoji range
+   (set-fontset-font t '(#x1F600 . #x1F64F) "Apple Color Emoji") ;; Emoticons
+   (set-fontset-font t '(#x1F900 . #x1F9FF) "Apple Color Emoji") ;; Supplemental Symbols and Pictographs
+   (set-fontset-font t '(#x2600 . #x26FF) "Apple Color Emoji")   ;; Miscellaneous Symbols
+
+   ;; Create the fontset with correct XLFD syntax
+   (create-fontset-from-fontset-spec
+    (concat
+     "-*-Menlo-normal-normal-normal-*-14-*-*-*-m-0-fontset-unicode,"
+     (mapconcat
+      (lambda (font-spec)
+	(format "%s:-*-%s-normal-normal-normal-*-14-*-*-*-p-0-iso10646-1"
+		(car font-spec)
+		(car font-spec)))
+      fallback-font-families
+      ",")))
+
+   (use-package mixed-pitch
+     :init
+     (set-face-attribute 'default nil :height 140)
+     (set-face-attribute 'default nil :family "Menlo" :height 140)
+     (set-face-attribute 'variable-pitch nil :family "Brygada 1918" :height 160)
+     ;; Add fallback fonts using set-fontset-font
+     (dolist (font fallback-font-families)
+       (set-fontset-font t nil (font-spec :family (car font)) nil 'append))
+     :custom
+     (mixed-pitch-set-height 160)
+     :hook text-mode)))
 
 ;;; --> Searching and navigation
 
