@@ -268,16 +268,16 @@
    (setq tool-bar-position 'bottom)
    (setq tool-bar-button-margin 27)
 
-   (defun android-toggle-keyboard ()
-     "Toggle the Android on-screen keyboard for the current frame."
+   (defun android-display-keyboard ()
+     "Displays the Android on-screen keyboard for the current frame."
      (interactive)
      (android-toggle-on-screen-keyboard (selected-frame) nil))
    
    (tool-bar-add-item
     "spell" ; icon
-    'android-toggle-keyboard  ; function
+    'android-display-keyboard  ; function
     'android-keyboard              ; property
-    :help "Toggle Android keyboard")
+    :help "Display Android keyboard")
    )
   
   (_ (error "Unhandled operating system %s" system-type))
