@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: derivative by y
+# key: ddy
+# --
+\frac{d$1}{dy}$0

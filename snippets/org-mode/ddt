@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: derivative by t
+# key: ddt
+# --
+\frac{d$1}{dt}$0

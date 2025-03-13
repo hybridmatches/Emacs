@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: Petrisa Answer Key y/n
+# key: peTp
+# --
+
+#+attr_latex: :options [label=\Alph*]
+#+begin_enumerate
+\small
+\item DA
+\item NE
+#+end_enumerate
+
+$0

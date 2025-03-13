@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: partial derivative by z
+# key: ppz
+# --
+\frac{\partial $1}{\partial z}$0

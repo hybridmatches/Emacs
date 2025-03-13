@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: partial derivative by t
+# key: ppt
+# --
+\frac{\partial $1}{\partial t}$0

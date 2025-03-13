@@ -1,0 +1,12 @@
+# -*- mode: snippet -*-
+# name: Tikz Commutative Diagram
+# key: Tcd
+# --
+
+#+name: ${1:name}
+#+header: :fit yes :imagemagick yes :iminoptions -density 600 :imoutoptions -geometry 400 :results silent
+#+begin_src latex :file img/$1.png
+$0
+#+end_src
+
+[[file:img/$1.png]]

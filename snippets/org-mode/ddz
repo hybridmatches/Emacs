@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: derivative by z
+# key: ddz
+# --
+\frac{d$1}{dz}$0

@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: partial derivative by y
+# key: ppy
+# --
+\frac{\partial $1}{\partial y}$0

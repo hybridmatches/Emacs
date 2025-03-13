@@ -1,0 +1,181 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{js}[2021/11/14 js]
+
+\RequirePackage[slovene]{babel}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage[T1]{fontenc}
+% \usepackage[olddefault]{fontsetup}
+% \usepackage{unicode-math}
+% \setmathfont{New Computer Modern Math}
+
+% \usepackage{atveryend}
+% \usepackage[backend=bibtex]{biblatex}
+
+\RequirePackage[shortlabels]{enumitem}
+\RequirePackage{amsmath}
+\RequirePackage{amsthm}
+\RequirePackage{mathrsfs}
+\RequirePackage{amssymb}
+\RequirePackage{mathtools}
+\RequirePackage{etoolbox}
+\RequirePackage{esvect}
+
+\RequirePackage{float}
+\RequirePackage{graphicx}
+\RequirePackage{subcaption}
+\RequirePackage{wrapfig}
+\RequirePackage{multirow}
+\RequirePackage{array}
+\renewcommand{\arraystretch}{1.4}
+\setcounter{MaxMatrixCols}{20}
+
+\usepackage{readarray}
+\usepackage{gensymb}
+
+%\usepackage{polyglossia}
+\usepackage{tikz}
+
+\usepackage{csquotes} 
+\usepackage{tikz-cd}
+\usetikzlibrary{babel}
+\usetikzlibrary{calc}
+\usetikzlibrary{decorations.pathmorphing}
+
+\usepackage{chemformula}
+\usepackage{textgreek}
+
+\providecommand{\N}{\mathbb{N}}
+\providecommand{\Z}{\mathbb{Z}}
+\providecommand{\Q}{\mathbb{Q}}
+\providecommand{\R}{\mathbb{R}}
+\providecommand{\C}{\mathbb{C}}
+\providecommand{\F}{\mathbb{F}}
+\providecommand{\bH}{\mathbb{H}}
+\providecommand{\HH}{\mathbb{H}}
+\providecommand{\E}{\mathbb{E}}
+\providecommand{\A}{\mathbb{A}}
+\let\P\relax
+\providecommand{\P}{\mathbb{P}}
+\providecommand{\lt}{<}
+\providecommand{\gt}{>}
+\providecommand{\lint}{\int\limits}
+\providecommand{\liint}{\iint\limits}
+\providecommand{\liiint}{\iiint\limits}
+\providecommand{\lidotsint}{\idotsint\limits}
+\providecommand{\olint}{\oint\limits}
+
+\DeclareMathOperator{\id}{id}
+\DeclareMathOperator{\Sim}{Sim}
+\DeclareMathOperator{\rang}{rang}
+\DeclareMathOperator{\sgn}{sgn}
+\DeclareMathOperator{\im}{im}
+\DeclareMathOperator{\Lin}{Lin}
+\DeclareMathOperator{\enm}{End}
+\DeclareMathOperator{\aut}{Aut}
+\DeclareMathOperator{\Int}{Int}
+\DeclareMathOperator{\grad}{grad}
+\DeclareMathOperator{\divv}{div}
+\DeclareMathOperator{\rot}{rot}
+\DeclareMathOperator{\Cl}{Cl}
+\DeclareMathOperator{\Fr}{Fr}
+\DeclareMathOperator{\dom}{dom}
+\DeclareMathOperator{\cod}{cod}
+\DeclareMathOperator{\argmax}{argmax}
+\DeclareMathOperator{\argmin}{argmin}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\charf}{char}
+\DeclareMathOperator{\graf}{Graf}
+\DeclareMathOperator{\gal}{Gal}
+\DeclareMathOperator{\ob}{Ob}
+\DeclareMathOperator{\gend}{End}
+\DeclareMathOperator{\meja}{Meja}
+\DeclareMathOperator{\Res}{Res}
+\let\Im\relax
+\DeclareMathOperator{\Im}{Im}
+\let\Re\relax
+\DeclareMathOperator{\Re}{Re}
+\DeclareMathOperator{\Hom}{Hom}
+\DeclareMathOperator{\tang}{T}
+\DeclareMathOperator{\spec}{Spec}
+\DeclareMathOperator*{\colim}{colim}
+\DeclareMathOperator{\fl}{fl}
+\DeclareMathOperator{\codim}{codim}
+\DeclareMathOperator{\supp}{supp}
+
+\providecommand{\pot}{\mathcal{P}}
+\providecommand{\rel}[1]{\mathrel{#1}}
+\providecommand{\set}[1]{\left\{#1\right\}}
+\providecommand{\setb}[2]{\left\{#1~\middle\vert~#2\right\}}
+\providecommand{\abs}[1]{\left\lvert #1\right\rvert}
+\providecommand{\norm}[1]{\left\lVert #1\right\rVert}
+\providecommand{\floor}[1]{\left\lfloor #1\right\rfloor}
+\providecommand{\ceil}[1]{\left\lceil #1\right\rceil}
+\providecommand{\eval}[3]{\left. #1\right|_{#2}^{#3}}
+\providecommand{\skl}[1]{\left\langle #1\right\rangle}
+\providecommand{\kvoc}[2]{{#1/_{#2}}}
+\providecommand{\br}[1]{\left(#1\right)}
+
+\providecommand{\vecc}[2]{\begin{bmatrix} #1 \\ #2 \end{bmatrix}}
+
+% Quiver commands
+% A TikZ style for curved arrows of a fixed height, due to AndréC.
+\tikzset{curve/.style={settings={#1},to path={(\tikztostart)
+    .. controls ($(\tikztostart)!\pv{pos}!(\tikztotarget)!\pv{height}!270:(\tikztotarget)$)
+    and ($(\tikztostart)!1-\pv{pos}!(\tikztotarget)!\pv{height}!270:(\tikztotarget)$)
+    .. (\tikztotarget)\tikztonodes}},
+    settings/.code={\tikzset{quiver/.cd,#1}
+        \def\pv##1{\pgfkeysvalueof{/tikz/quiver/##1}}},
+    quiver/.cd,pos/.initial=0.35,height/.initial=0}
+
+% TikZ arrowhead/tail styles.
+\tikzset{tail reversed/.code={\pgfsetarrowsstart{tikzcd to}}}
+\tikzset{2tail/.code={\pgfsetarrowsstart{Implies[reversed]}}}
+\tikzset{2tail reversed/.code={\pgfsetarrowsstart{Implies}}}
+% TikZ arrow styles.
+\tikzset{no body/.style={/tikz/dash pattern=on 0 off 1mm}}
+
+
+% More sensible defaults for ugly OCR and the like
+\let\ttepsilon\epsilon
+\let\epsilon\varepsilon
+
+% Theorem environs etc
+\newenvironment{rešitev}{\begin{proof}[Rešitev]}{\end{proof}}
+\theoremstyle{definition}
+\newtheorem{izrek}{Izrek}[section]
+\newtheorem{lema}[izrek]{Lema}%[section]
+\newtheorem*{lema*}{Lema}%[section]
+\newtheorem{opomba}{Opomba}[izrek]
+\newtheorem{posledica}[opomba]{Posledica}
+\newtheorem{trditev}[izrek]{Trditev}
+\newtheorem*{trditev*}{Trditev}
+\newtheorem{definicija}[izrek]{Definicija}%[section]
+\newtheorem{zgled}{Zgled}[izrek]
+\newtheorem{primer}{Primer}[subsection]
+\newtheorem{naloga}{Naloga}[section]
+
+%x-arrows
+\makeatletter
+\newcommand*{\relrelbarsep}{.386ex}
+\newcommand*{\relrelbar}{%
+  \mathrel{%
+    \mathpalette\@relrelbar\relrelbarsep
+  }%
+}
+\newcommand*{\@relrelbar}[2]{%
+  \raise#2\hbox to 0pt{$\m@th#1\relbar$\hss}%
+  \lower#2\hbox{$\m@th#1\relbar$}%
+}
+\providecommand*{\rightrightarrowsfill@}{%
+  \arrowfill@\relrelbar\relrelbar\rightrightarrows
+}
+\providecommand*{\leftleftarrowsfill@}{%
+  \arrowfill@\leftleftarrows\relrelbar\relrelbar
+}
+\providecommand*{\xrightrightarrows}[2][]{%
+  \ext@arrow 0359\rightrightarrowsfill@{#1}{#2}%
+}
+\providecommand*{\xleftleftarrows}[2][]{%
+  \ext@arrow 3095\leftleftarrowsfill@{#1}{#2}%
+}
+\makeatother
