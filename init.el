@@ -263,17 +263,50 @@
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
    ;; Bars ;;
    (tool-bar-mode 1)
+   (setq tool-bar-position 'bottom)
+   (setq tool-bar-button-margin 27)
+
    (menu-bar-mode -1)
 
+   ; Stolen from https://www.reddit.com/r/emacs/comments/1d6tc86/android_native_clients_material_icons/
    (defun android-toggle-keyboard ()
      (interactive)
-     (android-toggle-on-screen-keyboard))
-   
+     (if touch-screen-display-keyboard
+	 (progn
+           (setq touch-screen-display-keyboard nil)
+           (tool-bar-add-item
+            "keyboard-off" 'android-toggle-keyboard
+            'android-toggle-keyboard
+            :help "Toggle keyboard")
+           (message "Disable virtual keyboard"))
+       (setq touch-screen-display-keyboard t)
+       (tool-bar-add-item
+	"keyboard" 'android-toggle-keyboard
+	'android-toggle-keyboard
+	:help "Toggle keyboard")
+       (message "Enable virtual keyboard")))
+
    (tool-bar-add-item
-     "spell" ; icon
-     'android-toggle-keyboard  ; function
-     'android-keyboard              ; property
-     :help "Toggle Android keyboard")
+            "keyboard-off" 'android-toggle-keyboard
+            'android-toggle-keyboard
+            :help "Toggle keyboard")
+
+   ;; (defun android-tool-bar-configs()
+   ;;   (when (and (fboundp 'tool-bar-mode)
+   ;; 		(string-equal system-type "android"))
+
+   ;;     (tool-bar-mode +1)
+   ;;     (setq! tool-bar-position 'bottom)
+   ;;     (setq! tool-bar-button-margin 27)
+   ;;     ;; (modifier-bar-mode +1)
+
+   ;;     (setq tool-bar-map '(keymap nil))
+
+   ;;     ;; (add-to-list 'image-load-path (expand-file-name "modules/pen" doom-private-dir))
+   ;;     ;; (android-general-tool-bar 'tool-bar-add-item nil)
+
+
+   ;;     ))
    )
   
   (_ (error "Unhandled operating system %s" system-type))
