@@ -115,6 +115,7 @@
   (my/apply-theme 'light))
 
 (use-package nerd-icons
+  :if (memq system-type '(darwin))
   :defer t)
 
 (use-package doom-modeline
@@ -249,6 +250,16 @@
    ;; Registers ;;
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
+   )
+  ('android
+   (defvar org-roam-directory "~/Documents/org")
+   (defvar org-directory "~/Documents/org")
+   (defvar yt-dlp-folder "~/Movies/Youtube"
+     "Main directory for downloading videos using yt-dlp.")
+   ;; Registers ;;
+   (set-register ?r '(file . "~/.emacs.d/init.el"))
+   (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
+   (tool-bar-mode 1)
    )
   
   (_ (error "Unhandled operating system %s" system-type))
