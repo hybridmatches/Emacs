@@ -298,33 +298,7 @@
 
 ;; Define variable-pitch font - same across platforms
 (defvar variable-pitch-font "Brygada 1918")
-
-;; Common face customizations for all platforms
-(defun setup-common-faces ()
-  (custom-set-faces
-   `(fixed-pitch ((t (:family ,fixed-pitch-font))))
-   '(org-block ((t (:inherit fixed-pitch))))
-   '(org-code ((t (:inherit (shadow fixed-pitch)))))
-   '(org-document-info ((t (:foreground "dark orange"))))
-   '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
-   `(org-document-title ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.5 :underline nil))))
-   '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
-   `(org-level-1 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.5))))
-   `(org-level-2 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.25))))
-   `(org-level-3 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.1))))
-   `(org-level-4 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.1))))
-   `(org-level-5 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
-   `(org-level-6 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
-   `(org-level-7 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
-   `(org-level-8 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
-   '(org-link ((t (:foreground "royal blue" :underline t))))
-   '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-   '(org-property-value ((t (:inherit fixed-pitch))))
-   '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
-   '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
-   '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
-   '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
-   `(variable-pitch ((t (:family ,variable-pitch-font))))))
+(defvar org-heading-font "-*-Brygada 1918-semibold-normal-normal-*-*-*-*-*-p-0-iso10646-1")
 
 ;; ===================================
 ;; Platform-Specific Font Configuration
@@ -367,6 +341,31 @@
       fallback-font-families
       ",")))
 
+   (custom-set-faces
+    `(fixed-pitch ((t (:family ,fixed-pitch-font :height 140))))
+    '(org-block ((t (:inherit fixed-pitch))))
+    '(org-code ((t (:inherit (shadow fixed-pitch)))))
+    '(org-document-info ((t (:foreground "dark orange"))))
+    '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+    `(org-document-title ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.5 :underline nil))))
+    '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+    `(org-level-1 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.5))))
+    `(org-level-2 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.25))))
+    `(org-level-3 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.1))))
+    `(org-level-4 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.1))))
+    `(org-level-5 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    `(org-level-6 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    `(org-level-7 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    `(org-level-8 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    '(org-link ((t (:foreground "royal blue" :underline t))))
+    '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+    '(org-property-value ((t (:inherit fixed-pitch))))
+    '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+    '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+    '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
+    '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
+    `(variable-pitch ((t (:family ,variable-pitch-font :height 155)))))
+
    ;; macOS-specific mixed-pitch setup
    (use-package mixed-pitch
      :init
@@ -385,15 +384,37 @@
    ;; No fallback fonts needed for Android
    (defvar fallback-font-families nil)
 
+   (custom-set-faces
+    `(fixed-pitch ((t (:family ,fixed-pitch-font))))
+    '(org-block ((t (:inherit fixed-pitch))))
+    '(org-code ((t (:inherit (shadow fixed-pitch)))))
+    '(org-document-info ((t (:foreground "dark orange"))))
+    '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+    `(org-document-title ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.5 :underline nil))))
+    '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+    `(org-level-1 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.5))))
+    `(org-level-2 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.25))))
+    `(org-level-3 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.1))))
+    `(org-level-4 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.1))))
+    `(org-level-5 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    `(org-level-6 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    `(org-level-7 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    `(org-level-8 ((t (:inherit default :weight bold :foreground "#556b72" :font ,org-heading-font :height 1.0))))
+    '(org-link ((t (:foreground "royal blue" :underline t))))
+    '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+    '(org-property-value ((t (:inherit fixed-pitch))))
+    '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+    '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+    '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
+    '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
+    `(variable-pitch ((t (:family ,variable-pitch-font)))))
+
    ;; Android-specific mixed-pitch setup
    (use-package mixed-pitch
      :init
      (set-face-attribute 'default nil :family fixed-pitch-font)
      (set-face-attribute 'variable-pitch nil :family variable-pitch-font)
      :hook text-mode)))
-
-;; Call the common face setup after platform-specific configuration
-(setup-common-faces)
 
 ;;; --> Searching and navigation
 
