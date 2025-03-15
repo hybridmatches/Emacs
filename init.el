@@ -285,8 +285,55 @@
 
 ;;; -> Look and feel -> Fonts
 
+;; ===================================
+;; Common Font Configuration (All Platforms)
+;; ===================================
+
+;; Define platform-specific fixed-pitch font
+(defvar fixed-pitch-font
+  (pcase system-type
+    ('darwin "Menlo")
+    ('android "JetBrains Mono")
+    (t "Monospace")))
+
+;; Define variable-pitch font - same across platforms
+(defvar variable-pitch-font "Brygada 1918")
+
+;; Common face customizations for all platforms
+(defun setup-common-faces ()
+  (custom-set-faces
+   `(fixed-pitch ((t (:family ,fixed-pitch-font))))
+   '(org-block ((t (:inherit fixed-pitch))))
+   '(org-code ((t (:inherit (shadow fixed-pitch)))))
+   '(org-document-info ((t (:foreground "dark orange"))))
+   '(org-document-info-keyword ((t (:inherit (shadow fixed-pitch)))))
+   `(org-document-title ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.5 :underline nil))))
+   '(org-indent ((t (:inherit (org-hide fixed-pitch)))))
+   `(org-level-1 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.5))))
+   `(org-level-2 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.25))))
+   `(org-level-3 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.1))))
+   `(org-level-4 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.1))))
+   `(org-level-5 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
+   `(org-level-6 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
+   `(org-level-7 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
+   `(org-level-8 ((t (:inherit default :weight bold :foreground "#556b72" :family ,variable-pitch-font :height 1.0))))
+   '(org-link ((t (:foreground "royal blue" :underline t))))
+   '(org-meta-line ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+   '(org-property-value ((t (:inherit fixed-pitch))))
+   '(org-special-keyword ((t (:inherit (font-lock-comment-face fixed-pitch)))))
+   '(org-table ((t (:inherit fixed-pitch :foreground "#83a598"))))
+   '(org-tag ((t (:inherit (shadow fixed-pitch) :weight bold :height 0.8))))
+   '(org-verbatim ((t (:inherit (shadow fixed-pitch)))))
+   `(variable-pitch ((t (:family ,variable-pitch-font))))))
+
+;; ===================================
+;; Platform-Specific Font Configuration
+;; ===================================
+
 (pcase system-type
-  ('darwin;; First, let's define a list of fallback fonts that cover various scripts
+  ;; macOS Configuration
+  ('darwin
+   ;; Define fallback fonts for macOS
    (defvar fallback-font-families
      '(("Apple Color Emoji" . 140)            ; Apple Emojis
        ("Noto Sans" . 140)                    ; General Unicode coverage
@@ -301,7 +348,7 @@
        ("Noto Sans Imperial Aramaic" . 140)   ; Imperial Aramaic
        ("Symbola" . 140)))                    ; General symbol fallback
 
-   ;; (set-fontset-font t '(#x10840 . #x1085F) "Noto Sans Imperial Aramaic")
+   ;; Set up emoji and special character fonts
    (set-fontset-font t 'symbol "Apple Color Emoji" nil 'prepend)
    (set-fontset-font t '(#x1F300 . #x1FAD6) "Apple Color Emoji") ;; Emoji range
    (set-fontset-font t '(#x1F600 . #x1F64F) "Apple Color Emoji") ;; Emoticons
@@ -314,17 +361,18 @@
      "-*-Menlo-normal-normal-normal-*-14-*-*-*-m-0-fontset-unicode,"
      (mapconcat
       (lambda (font-spec)
-	(format "%s:-*-%s-normal-normal-normal-*-14-*-*-*-p-0-iso10646-1"
-		(car font-spec)
-		(car font-spec)))
+        (format "%s:-*-%s-normal-normal-normal-*-14-*-*-*-p-0-iso10646-1"
+                (car font-spec)
+                (car font-spec)))
       fallback-font-families
       ",")))
 
+   ;; macOS-specific mixed-pitch setup
    (use-package mixed-pitch
      :init
      (set-face-attribute 'default nil :height 140)
-     (set-face-attribute 'default nil :family "Menlo" :height 140)
-     (set-face-attribute 'variable-pitch nil :family "Brygada 1918" :height 160)
+     (set-face-attribute 'default nil :family fixed-pitch-font :height 140)
+     (set-face-attribute 'variable-pitch nil :family variable-pitch-font :height 160)
      ;; Add fallback fonts using set-fontset-font
      (dolist (font fallback-font-families)
        (set-fontset-font t nil (font-spec :family (car font)) nil 'append))
@@ -332,17 +380,20 @@
      (mixed-pitch-set-height 160)
      :hook text-mode))
 
+  ;; Android Configuration
   ('android
+   ;; No fallback fonts needed for Android
    (defvar fallback-font-families nil)
 
+   ;; Android-specific mixed-pitch setup
    (use-package mixed-pitch
      :init
-     (set-face-attribute 'default nil :height 140)
-     (set-face-attribute 'default nil :family "JetBrains Mono" :height 140)
-     (set-face-attribute 'variable-pitch nil :family "Brygada 1918" :height 160)
-     :custom
-     (mixed-pitch-set-height 160)
+     (set-face-attribute 'default nil :family fixed-pitch-font)
+     (set-face-attribute 'variable-pitch nil :family variable-pitch-font)
      :hook text-mode)))
+
+;; Call the common face setup after platform-specific configuration
+(setup-common-faces)
 
 ;;; --> Searching and navigation
 
