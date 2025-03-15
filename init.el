@@ -115,7 +115,6 @@
   (my/apply-theme 'light))
 
 (use-package nerd-icons
-  :if (memq system-type '(darwin))
   :defer t)
 
 (use-package doom-modeline
