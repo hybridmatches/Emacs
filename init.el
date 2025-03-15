@@ -330,6 +330,18 @@
        (set-fontset-font t nil (font-spec :family (car font)) nil 'append))
      :custom
      (mixed-pitch-set-height 160)
+     :hook text-mode))
+
+  ('android
+   (defvar fallback-font-families nil)
+
+   (use-package mixed-pitch
+     :init
+     (set-face-attribute 'default nil :height 140)
+     (set-face-attribute 'default nil :family "JetBrains Mono" :height 140)
+     (set-face-attribute 'variable-pitch nil :family "Brygada 1918" :height 160)
+     :custom
+     (mixed-pitch-set-height 160)
      :hook text-mode)))
 
 ;;; --> Searching and navigation
@@ -1501,6 +1513,7 @@ you can catch it with `condition-case'."
          ("D" . elfeed-filter-downloaded)
 	 ("s" . my/elfeed-show-non-trash)
 	 ("P" . js/log-elfeed-process)
+	 ("B" . elfeed-search-browse-url-firefox)
 
          :map elfeed-show-mode-map
          ("SPC" . elfeed-scroll-up-command)
@@ -1510,8 +1523,11 @@ you can catch it with `condition-case'."
 	 ("t" . elfeed-show-trash)
          ("i" . open-youtube-in-iina)
 	 ("M-o" . ace-link-safari)
+	 ("B" . elfeed-show-browse-url-firefox)
          )
-
+  :custom
+  (browse-url-firefox-program "open")
+  (browse-url-firefox-arguments '("-a" "Firefox"))
   :hook
   (elfeed-show-mode . mixed-pitch-mode)
   (elfeed-show-mode . visual-line-mode)
@@ -1644,6 +1660,21 @@ Executing a filter in bytecode form is generally faster than
                               collect `(string-match-p ,regex author-names))))))
 		,@(when before
                     `((> age ,before))))))))
+
+  ;; Function to open current entry in Firefox (search mode)
+  (defun elfeed-search-browse-url-firefox ()
+    "Visit the current entry in Firefox."
+    (interactive)
+    (let ((browse-url-browser-function 'browse-url-firefox))
+      (elfeed-search-browse-url)))
+
+  ;; Function for show mode
+  (defun elfeed-show-browse-url-firefox ()
+    "Visit the current entry in Firefox."
+    (interactive)
+    (let ((browse-url-browser-function 'browse-url-firefox))
+      (elfeed-show-browse-url)))
+
 
   ) ; End of elfeed use-package block
 
