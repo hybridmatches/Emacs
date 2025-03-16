@@ -1764,48 +1764,106 @@ Executing a filter in bytecode form is generally faster than
     (let ((browse-url-browser-function 'browse-url-firefox))
       (elfeed-show-browse-url)))
 
-  ;;; -> Elfeed -> Syncing
-  ;; Load database before opening Elfeed
-  (defun my/elfeed-load-db-and-open ()
-    "Load the Elfeed database from disk before opening Elfeed."
-    (interactive)
-    (message "Loading Elfeed database...")
-    (elfeed-db-load)
-    (elfeed)
-    (elfeed-search-update--force)
-    (message "Loading Elfeed database...done"))
+;;; -> Elfeed -> Syncing with conflict protection
 
-  ;; Save database when quitting
-  (defun my/elfeed-save-db-and-bury ()
-    "Save the Elfeed database to disk before burying buffer."
-    (interactive)
-    (message "Saving Elfeed database...")
-    (elfeed-db-save)
-    (quit-window)
-    (message "Saving Elfeed database...done"))
+;; Track database modification times
+(defvar my/elfeed-last-db-load-time (current-time)
+  "Time when the Elfeed database was last loaded.")
 
-  ;; Periodic sync function - doesn't close the window, just updates
-  (defun my/elfeed-sync-update ()
-    "Sync Elfeed between devices - save and reload database."
-    (interactive)
-    (message "Syncing Elfeed database...")
-    (elfeed-db-save)
-    (elfeed-db-load)
-    (when (derived-mode-p 'elfeed-search-mode)
-      (elfeed-search-update--force))
-    (message "Syncing Elfeed database...done"))
+(defvar my/elfeed-last-db-save-time (current-time)
+  "Time when the Elfeed database was last saved.")
 
-  ;; Manual sync command - useful when you know another device has updated
-  (defun my/elfeed-manual-sync ()
-    "Manually sync Elfeed database with other devices."
-    (interactive)
-    (my/elfeed-sync-update)
-    (message "Manual sync completed"))
+;; Check if Syncthing is actively syncing the database
+(defun my/syncthing-active-on-elfeed-p ()
+  "Check if Syncthing is actively modifying the Elfeed database."
+  (let* ((elfeed-dir (expand-file-name elfeed-db-directory))
+         (syncthing-temp-files 
+          (directory-files elfeed-dir t "\\.syncthing\\.*\\'" t)))
+    (> (length syncthing-temp-files) 0)))
 
-  ;; TODO: Enable timer sync
-  ;; Set timer for periodic syncing (every 10 minutes)
-  ;; (run-with-timer 0 (* 10 60) 'my/elfeed-sync-update)
+;; Check if the database file has been modified externally
+(defun my/elfeed-db-modified-externally-p ()
+  "Check if the Elfeed database has been modified since we last loaded it."
+  (let* ((index-file (concat elfeed-db-directory "/index"))
+         (file-mod-time (and (file-exists-p index-file)
+                           (file-attribute-modification-time 
+                            (file-attributes index-file)))))
+    (and file-mod-time
+         (time-less-p my/elfeed-last-db-load-time file-mod-time))))
 
+;; Function to determine if we should save
+(defun my/elfeed-safe-to-save-p ()
+  "Determine if it's safe to save the Elfeed database."
+  (if (my/syncthing-active-on-elfeed-p)
+      (progn
+        (message "Elfeed save aborted: Syncthing is actively syncing")
+        nil)  ;; Not safe to save
+    (if (my/elfeed-db-modified-externally-p)
+        (progn
+          (message "Elfeed save aborted: External changes detected, reload first")
+          nil)  ;; Not safe to save
+      t)))  ;; Safe to save
+
+;; Save with protection
+(defun my/elfeed-safe-db-save ()
+  "Save the Elfeed database only if it's safe to do so."
+  (interactive)
+  (if (my/elfeed-safe-to-save-p)
+      (progn
+        (elfeed-db-save)
+        (setq my/elfeed-last-db-save-time (current-time))
+        (message "Elfeed database saved safely"))
+    (message "Elfeed database not saved due to potential conflict")))
+
+;; Load database before opening Elfeed
+(defun my/elfeed-load-db-and-open ()
+  "Load the Elfeed database from disk before opening Elfeed."
+  (interactive)
+  (message "Loading Elfeed database...")
+  (elfeed-db-load)
+  (setq my/elfeed-last-db-load-time (current-time))
+  (elfeed)
+  (elfeed-search-update--force)
+  (message "Elfeed database loaded"))
+
+;; Save database when quitting
+(defun my/elfeed-save-db-and-bury ()
+  "Save the Elfeed database to disk before burying buffer."
+  (interactive)
+  (my/elfeed-safe-db-save)
+  (quit-window))
+
+;; Improved sync function with conflict protection
+(defun my/elfeed-sync-update ()
+  "Sync Elfeed between devices - safely save and reload database."
+  (interactive)
+  (message "Syncing Elfeed database...")
+  
+  ;; Check if we should save first
+  (if (my/elfeed-safe-to-save-p)
+      (elfeed-db-save)
+    (message "Skipping save step due to potential conflict"))
+  
+  ;; Always reload
+  (elfeed-db-load)
+  (setq my/elfeed-last-db-load-time (current-time))
+  
+  ;; Update UI if appropriate
+  (when (derived-mode-p 'elfeed-search-mode)
+    (elfeed-search-update--force))
+  
+  (message "Elfeed database sync completed"))
+
+;; Manual sync command - useful when you know another device has updated
+(defun my/elfeed-manual-sync ()
+  "Manually sync Elfeed database with other devices."
+  (interactive)
+  (my/elfeed-sync-update)
+  (message "Manual Elfeed sync completed"))
+
+;; Set timer for periodic syncing (every 15 minutes)
+;; Uncomment this line when you're ready to enable automatic syncing
+;; (run-with-timer 0 (* 15 60) 'my/elfeed-sync-update)
 
   ) ; End of elfeed use-package block
 
