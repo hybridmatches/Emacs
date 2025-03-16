@@ -1980,6 +1980,25 @@ If a key is provided, use it instead of the default capture template."
 
   ) ;; End of elfeed-tube package block
 
+(use-package async)
+
+(use-package elfeed-sync
+  :vc (:url "https://github.com/MasWag/emacs-elfeed-sync")
+  :after elfeed async
+  :config
+  (pcase system-type
+    ('darwin
+     ;; Mac configuration - Mac is the sync source
+     (setq elfeed-sync-location-path "~/.elfeed/"))
+    ('android
+     ;; Android configuration - connects to Mac
+     (setq elfeed-sync-remote-index-path "/rsync:jure@Second-Brain-2.local:.elfeed/index")))
+  
+  :bind (:map elfeed-search-mode-map
+              ("Y" . elfeed-sync-push)
+              ("R" . elfeed-sync-pull))
+  ) ;; End of elfeed-sync package block
+
 ;; (use-package activity-watch-mode
 ;;   :init (global-activity-watch-mode 1))
 
