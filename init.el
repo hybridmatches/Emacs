@@ -1624,6 +1624,7 @@ you can catch it with `condition-case'."
   (elfeed-show-mode . mixed-pitch-mode)
   (elfeed-show-mode . visual-line-mode)
   (elfeed-show-mode . efs/org-mode-visual-fill)
+  (focus-in-hook . my/elfeed-check-on-focus)
   :config
   ;; Variables
   (setq shr-width 105)
@@ -1783,7 +1784,7 @@ A potentially already active timer is first cancelled,
 then a new one is started.
 
 When the timer expires, it saves the database before marking Elfeed as inactive.
-This allows gracefully saving the database"
+This allows gracefully saving the database and not spamming while using it."
 
   ;; An already active is first canceled
   (when my/elfeed-inactivity-timer
@@ -1851,22 +1852,56 @@ Ensures the database stays up to date even if elfeed continues to be open, but i
 
   ;; Run updater every 5 minutes
   (run-with-timer 0 (* 5 60) 'my/elfeed-updater)
+
+  (defun my/elfeed-check-on-focus ()
+    "Check for Elfeed updates when Emacs regains focus.
+Only updates if Elfeed is inactive (timer is nil) but still accessible."
+    (unless my/elfeed-inactivity-timer ;; Only recheck if inactive
+      
+      ;; Check for an Elfeed search buffer that is either:
+      ;; 1. Currently visible in a window, or
+      ;; 2. In the buffer list but not too far down (recently used)
+      (let* ((elfeed-buffer (get-buffer "*elfeed-search*"))
+             (buffer-visible (and elfeed-buffer (get-buffer-window elfeed-buffer)))
+             (buffer-recent (and elfeed-buffer 
+				 (member elfeed-buffer 
+					 (seq-take (buffer-list) 10))))
+             (go-p (or buffer-visible buffer-recent)))
+	
+	(when go-p
+          (message "Elfeed inactive but accessible - updating from disk...")
+          ;; Load the database from disk
+          (elfeed-db-load)
+          
+          ;; Update the search buffer
+          (with-current-buffer elfeed-buffer
+            (elfeed-search-update--force))
+          
+          ;; Restart the inactivity timer to prevent repeated updates
+          (my/elfeed-reset-inactivity-timer)
+          
+          (message "Elfeed updated from disk on focus change.")))))
+
+;; To use this function, add it to focus-in-hook in your elfeed use-package configuration:
+;; (add-hook 'focus-in-hook #'my/elfeed-check-on-focus)
+
   
   (defun my/elfeed-force-pull ()
-    "Force load the Elfeed database from disk, regardless of activity status."
-    (interactive)
+  "Force load the Elfeed database from disk, regardless of activity status."
+  (interactive)
+  (when (yes-or-no-p "Force pull Elfeed database from disk? This will overwrite any unsaved local changes. ")
     (message "Force pulling Elfeed database...")
     (elfeed-db-load)
     (elfeed-search-update--force)
-    (message "Elfeed database pulled from disk."))
+    (message "Elfeed database pulled from disk.")))
 
-  ;; Force push (save) the database
-  (defun my/elfeed-force-push ()
-    "Force save the Elfeed database to disk, regardless of activity status."
-    (interactive)
+(defun my/elfeed-force-push ()
+  "Force save the Elfeed database to disk, regardless of activity status."
+  (interactive)
+  (when (yes-or-no-p "Force push Elfeed database to disk? This may overwrite changes made on other devices. ")
     (message "Force pushing Elfeed database...")
     (elfeed-db-save)
-    (message "Elfeed database pushed to disk."))
+    (message "Elfeed database pushed to disk.")))
 
   ) ; End of elfeed use-package block
 
