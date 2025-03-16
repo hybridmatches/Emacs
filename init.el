@@ -257,6 +257,7 @@
    (defvar org-directory "~/Documents/org")
    (defvar yt-dlp-folder "~/Movies/Youtube"
      "Main directory for downloading videos using yt-dlp.")
+   (defvar elfeed-db-directory "~/Documents/.elfeed")
    ;; Registers ;;
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
