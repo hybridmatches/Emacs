@@ -1589,7 +1589,7 @@ you can catch it with `condition-case'."
 
 (use-package elfeed
   :defer t
-  :bind (("C-x w" . elfeed)
+  :bind (("C-x w" . my/elfeed-load-db-and-open)
 	 :map elfeed-search-mode-map
          ("SPC" . elfeed-search-show-entry)
 	 ("t" . elfeed-search-trash)
@@ -1600,7 +1600,10 @@ you can catch it with `condition-case'."
 	 ("s" . my/elfeed-show-non-trash)
 	 ("P" . js/log-elfeed-process)
 	 ("B" . elfeed-search-browse-url-firefox)
-
+	 ("Y" . my/elfeed-manual-sync) ;; Add manual sync option
+	 
+	 ("q" . my/elfeed-save-db-and-bury)
+	 
          :map elfeed-show-mode-map
          ("SPC" . elfeed-scroll-up-command)
          ("S-SPC" . elfeed-scroll-down-command)
@@ -1760,6 +1763,48 @@ Executing a filter in bytecode form is generally faster than
     (interactive)
     (let ((browse-url-browser-function 'browse-url-firefox))
       (elfeed-show-browse-url)))
+
+  ;;; -> Elfeed -> Syncing
+  ;; Load database before opening Elfeed
+  (defun my/elfeed-load-db-and-open ()
+    "Load the Elfeed database from disk before opening Elfeed."
+    (interactive)
+    (message "Loading Elfeed database...")
+    (elfeed-db-load)
+    (elfeed)
+    (elfeed-search-update--force)
+    (message "Loading Elfeed database...done"))
+
+  ;; Save database when quitting
+  (defun my/elfeed-save-db-and-bury ()
+    "Save the Elfeed database to disk before burying buffer."
+    (interactive)
+    (message "Saving Elfeed database...")
+    (elfeed-db-save)
+    (quit-window)
+    (message "Saving Elfeed database...done"))
+
+  ;; Periodic sync function - doesn't close the window, just updates
+  (defun my/elfeed-sync-update ()
+    "Sync Elfeed between devices - save and reload database."
+    (interactive)
+    (message "Syncing Elfeed database...")
+    (elfeed-db-save)
+    (elfeed-db-load)
+    (when (derived-mode-p 'elfeed-search-mode)
+      (elfeed-search-update--force))
+    (message "Syncing Elfeed database...done"))
+
+  ;; Manual sync command - useful when you know another device has updated
+  (defun my/elfeed-manual-sync ()
+    "Manually sync Elfeed database with other devices."
+    (interactive)
+    (my/elfeed-sync-update)
+    (message "Manual sync completed"))
+
+  ;; TODO: Enable timer sync
+  ;; Set timer for periodic syncing (every 10 minutes)
+  ;; (run-with-timer 0 (* 10 60) 'my/elfeed-sync-update)
 
 
   ) ; End of elfeed use-package block
