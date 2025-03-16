@@ -1589,7 +1589,8 @@ you can catch it with `condition-case'."
 
 (use-package elfeed
   :defer t
-  :bind (("C-x w" . my/elfeed-load-db-and-open)
+  :bind (;("C-x w" . my/elfeed-load-db-and-open)
+	 ("C-x w" . elfeed)
 	 :map elfeed-search-mode-map
          ("SPC" . elfeed-search-show-entry)
 	 ("t" . elfeed-search-trash)
@@ -1600,9 +1601,9 @@ you can catch it with `condition-case'."
 	 ("s" . my/elfeed-show-non-trash)
 	 ("P" . js/log-elfeed-process)
 	 ("B" . elfeed-search-browse-url-firefox)
-	 ("Y" . my/elfeed-manual-sync) ;; Add manual sync option
-	 
-	 ("q" . my/elfeed-save-db-and-bury)
+
+	 ;; ("Y" . my/elfeed-manual-sync) ;; Add manual sync option
+	 ;; ("q" . my/elfeed-save-db-and-bury)
 	 
          :map elfeed-show-mode-map
          ("SPC" . elfeed-scroll-up-command)
@@ -1764,43 +1765,59 @@ Executing a filter in bytecode form is generally faster than
     (let ((browse-url-browser-function 'browse-url-firefox))
       (elfeed-show-browse-url)))
 
-;;; -> Elfeed -> Sync
+;;; Elfeed Multi-Device Syncing
+;;; Simple solution with concise feedback
 
-;;write to disk when quiting
-(defun my/elfeed-save-db-and-bury ()
-  "Wrapper to save the elfeed db to disk before burying buffer"
-  (interactive)
-  (elfeed-db-save)
-  (quit-window))
-
-;;makes sure elfeed reads index from disk before launching
-(defun my/elfeed-load-db-and-open ()
-  "Wrapper to load the elfeed db from disk before opening"
-  (interactive)
-  (elfeed-db-load)
-  (elfeed)
-  (elfeed-search-update--force)
-  (elfeed-update))
-
-;; Modified updater function that loads FIRST, then saves
-(defun my/elfeed-updater ()
-  "Load the latest database, update UI, then save our changes"
-  (interactive)
-  ;; First load - get changes from other devices
-  (elfeed-db-load)
+  (defvar elfeed-active-p nil
+    "A boolean to checkc whether we should be saving or loading the database.
+If elfeed is active, it should be exporting, if inactive, importing.")
   
-  ;; Update the UI if Elfeed is open
-  (when (derived-mode-p 'elfeed-search-mode)
-    (elfeed-search-update--force))
-  
-  ;; Now save - preserves our read states plus incorporates 
-  ;; any new feeds from the sync
-  (elfeed-db-save)
-  (message "Elfeed database synchronized"))
+  ;; Save database when quitting
+  (defun my/elfeed-save-db-and-bury ()
+    "Save the Elfeed database to disk before burying buffer."
+    (interactive)
+    (setq elfeed-active-p nil)
+    (elfeed-db-save)
+    (quit-window)
+    (message "Elfeed database saved"))
 
-;; Run sync every 15 minutes
-;; (run-with-timer 0 (* 15 60) 'my/elfeed-updater)
+  ;; Load database before opening
+  (defun my/elfeed-load-db-and-open ()
+    "Load the Elfeed database from disk before opening Elfeed.
+If Elfeed is already running, just switch to its buffer."
+    (interactive)
+    (unless elfeed-active-p
+      (elfeed-db-load))
+    (elfeed)
+    (setq elfeed-active-p t)
+    ;;; This should start a timer which will set elfeed to be inactive after a few minutes;
+    ;;; ideally this should be interruptible, in the sense that if elfeed is closed beforehand,
+    ;;; the timer should stop.
+    (message "Elfeed database loaded"))
 
+  ;; Periodic updater that loads first, then saves
+  (defun my/elfeed-updater ()
+    "Load the latest database, update UI, then save our changes."
+    (interactive)
+    (message "Syncing Elfeed database...")
+
+    ;; If we're actively using it, we shouldn't load.
+    (unless elfeed-active-p
+      (elfeed-db-load))
+        
+    (elfeed-db-save)
+    (message "Elfeed database synchronized"))
+
+  ;; Manual sync command
+  (defun my/elfeed-manual-sync ()
+    "Manually sync Elfeed database with other devices."
+    (interactive)
+    (my/elfeed-updater)
+    (message "Manual Elfeed sync completed"))
+
+  ;; Run updater every 15 minutes
+  ;; Uncomment when ready to enable
+  ;; (run-with-timer 0 (* 15 60) 'my/elfeed-updater)
   ) ; End of elfeed use-package block
 
 (use-package elfeed-org
