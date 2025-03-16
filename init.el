@@ -1589,8 +1589,8 @@ you can catch it with `condition-case'."
 
 (use-package elfeed
   :defer t
-  :bind (;("C-x w" . my/elfeed-load-db-and-open)
-	 ("C-x w" . elfeed)
+  :bind (("C-x w" . my/elfeed-load-db-and-open)
+	 ;("C-x w" . elfeed)
 	 :map elfeed-search-mode-map
          ("SPC" . elfeed-search-show-entry)
 	 ("t" . elfeed-search-trash)
@@ -1602,8 +1602,10 @@ you can catch it with `condition-case'."
 	 ("P" . js/log-elfeed-process)
 	 ("B" . elfeed-search-browse-url-firefox)
 
-	 ;; ("Y" . my/elfeed-manual-sync) ;; Add manual sync option
-	 ;; ("q" . my/elfeed-save-db-and-bury)
+	 ("Y" . my/elfeed-force-push)
+	 ("R" . my/elfeed-force-pull)
+	 
+	 ("q" . my/elfeed-save-db-and-bury)
 	 
          :map elfeed-show-mode-map
          ("SPC" . elfeed-scroll-up-command)
@@ -1765,59 +1767,107 @@ Executing a filter in bytecode form is generally faster than
     (let ((browse-url-browser-function 'browse-url-firefox))
       (elfeed-show-browse-url)))
 
-;;; Elfeed Multi-Device Syncing
-;;; Simple solution with concise feedback
+;;; -> Elfeed -> Multi-Device Syncing
 
-  (defvar elfeed-active-p nil
-    "A boolean to checkc whether we should be saving or loading the database.
-If elfeed is active, it should be exporting, if inactive, importing.")
-  
-  ;; Save database when quitting
+  (defvar my/elfeed-inactivity-timer nil
+    "Timer to track Elfeed inactivity. When non-nil, Elfeed is considered active.
+In this case, we implicitly assume it is the true state of the database.")
+
+  (defvar my/elfeed-inactivity-timeout (* 30)
+    "Time in seconds before considering Elfeed inactive (default: 30 seconds).
+The assumption is that common elfeed functions are advised to reset the timer.")
+
+  (defun my/elfeed-reset-inactivity-timer ()
+  "Reset the inactivity timer for Elfeed.
+A potentially already active timer is first cancelled,
+then a new one is started.
+
+When the timer expires, it saves the database before marking Elfeed as inactive.
+This allows gracefully saving the database"
+
+  ;; An already active is first canceled
+  (when my/elfeed-inactivity-timer
+    (cancel-timer my/elfeed-inactivity-timer)
+    (setq my/elfeed-inactivity-timer nil))
+
+  ;; Then the timer resets.
+  (setq my/elfeed-inactivity-timer
+        (run-with-timer my/elfeed-inactivity-timeout nil
+		        (lambda ()
+                          ;; Save the database on inactivity
+                          (elfeed-db-save)
+                          ;; Mark as inactive
+                          (setq my/elfeed-inactivity-timer nil)
+                          (message "Elfeed database saved and marked as inactive.")))))
+
+  ;; Reset inactivity timer on Elfeed interactions
+  (with-eval-after-load 'elfeed
+    (dolist (func '(elfeed-search-update--force
+                    elfeed-search-fetch
+                    elfeed-search-browse-url
+                    elfeed-search-show-entry))
+      (advice-add func :after
+                  (lambda (&rest _)
+                    (my/elfeed-reset-inactivity-timer)))))
+
   (defun my/elfeed-save-db-and-bury ()
-    "Save the Elfeed database to disk before burying buffer."
+    "Upon quitting, cancel the activity timer and write the changes to disk."
     (interactive)
-    (setq elfeed-active-p nil)
+
+    ;; Cancel the inactivity timer when explicitly quitting
+    (when my/elfeed-inactivity-timer
+      (cancel-timer my/elfeed-inactivity-timer)
+      (setq my/elfeed-inactivity-timer nil))
+    
     (elfeed-db-save)
     (quit-window)
-    (message "Elfeed database saved"))
+    (message "Elfeed database saved."))
 
-  ;; Load database before opening
   (defun my/elfeed-load-db-and-open ()
-    "Load the Elfeed database from disk before opening Elfeed.
-If Elfeed is already running, just switch to its buffer."
+    "The elfeed opener funcion. If elfeed is inactive, it first reloads the database from disk."
     (interactive)
-    (unless elfeed-active-p
-      (elfeed-db-load))
-    (elfeed)
-    (setq elfeed-active-p t)
-    ;;; This should start a timer which will set elfeed to be inactive after a few minutes;
-    ;;; ideally this should be interruptible, in the sense that if elfeed is closed beforehand,
-    ;;; the timer should stop.
-    (message "Elfeed database loaded"))
 
-  ;; Periodic updater that loads first, then saves
+    ;; The check ensures we don't rewrite the database if we have unsaved changes.
+    (unless my/elfeed-inactivity-timer
+      (elfeed-db-load)
+      (elfeed-search-update--force))
+
+    (elfeed)
+    (my/elfeed-reset-inactivity-timer)
+    (message "Elfeed loaded and active"))
+
   (defun my/elfeed-updater ()
-    "Load the latest database, update UI, then save our changes."
+    "If elfeed is inactive, reload the (potentially updated) database from disk.
+Ensures the database stays up to date even if elfeed continues to be open, but inactive."
     (interactive)
     (message "Syncing Elfeed database...")
 
-    ;; If we're actively using it, we shouldn't load.
-    (unless elfeed-active-p
-      (elfeed-db-load))
-        
-    (elfeed-db-save)
-    (message "Elfeed database synchronized"))
+    ;; If the update coincides with activity, supress the load.
+    (unless my/elfeed-inactivity-timer
+      (elfeed-db-load)
+      (elfeed-search-update--force))
 
-  ;; Manual sync command
-  (defun my/elfeed-manual-sync ()
-    "Manually sync Elfeed database with other devices."
+    (message "Elfeed database synchronized!"))
+
+  ;; Run updater every 5 minutes
+  (run-with-timer 0 (* 5 60) 'my/elfeed-updater)
+  
+  (defun my/elfeed-force-pull ()
+    "Force load the Elfeed database from disk, regardless of activity status."
     (interactive)
-    (my/elfeed-updater)
-    (message "Manual Elfeed sync completed"))
+    (message "Force pulling Elfeed database...")
+    (elfeed-db-load)
+    (elfeed-search-update--force)
+    (message "Elfeed database pulled from disk."))
 
-  ;; Run updater every 15 minutes
-  ;; Uncomment when ready to enable
-  ;; (run-with-timer 0 (* 15 60) 'my/elfeed-updater)
+  ;; Force push (save) the database
+  (defun my/elfeed-force-push ()
+    "Force save the Elfeed database to disk, regardless of activity status."
+    (interactive)
+    (message "Force pushing Elfeed database...")
+    (elfeed-db-save)
+    (message "Elfeed database pushed to disk."))
+
   ) ; End of elfeed use-package block
 
 (use-package elfeed-org
