@@ -1851,8 +1851,8 @@ Ensures the database stays up to date even if elfeed continues to be open, but i
     )
 
   ;; Run updater every 5 minutes
-  (cancel-function-timers 'my/elfeed-updater)
-  (run-with-timer 0 (* 5 60) 'my/elfeed-updater)
+  ;; (cancel-function-timers 'my/elfeed-updater)
+  ;; (run-with-timer 0 (* 5 60) 'my/elfeed-updater)
 
   (defun my/elfeed-check-on-focus ()
     "Check for Elfeed updates when Emacs regains focus.
