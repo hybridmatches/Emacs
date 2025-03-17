@@ -1592,8 +1592,7 @@ you can catch it with `condition-case'."
 
 (use-package elfeed
   :defer t
-  :bind (("C-x w" . my/elfeed-load-db-and-open)
-	 ;("C-x w" . elfeed)
+  :bind (("C-x w" . elfeed)
 	 :map elfeed-search-mode-map
          ("SPC" . elfeed-search-show-entry)
 	 ("t" . elfeed-search-trash)
@@ -1607,7 +1606,6 @@ you can catch it with `condition-case'."
 
 	 ("Y" . my/elfeed-force-push)
 	 ("R" . my/elfeed-force-pull)
-	 
 	 ("q" . my/elfeed-save-db-and-bury)
 	 
          :map elfeed-show-mode-map
@@ -1627,7 +1625,7 @@ you can catch it with `condition-case'."
   (elfeed-show-mode . mixed-pitch-mode)
   (elfeed-show-mode . visual-line-mode)
   (elfeed-show-mode . efs/org-mode-visual-fill)
-  (focus-in . my/elfeed-check-on-focus)
+  (focus-in . my/elfeed-update-if-visible)
   :config
   ;; Variables
   (setq shr-width 105)
@@ -1782,27 +1780,27 @@ In this case, we implicitly assume it is the true state of the database.")
 The assumption is that common elfeed functions are advised to reset the timer.")
 
   (defun my/elfeed-reset-inactivity-timer ()
-  "Reset the inactivity timer for Elfeed.
+    "Reset the inactivity timer for Elfeed.
 A potentially already active timer is first cancelled,
 then a new one is started.
 
 When the timer expires, it saves the database before marking Elfeed as inactive.
 This allows gracefully saving the database and not spamming while using it."
 
-  ;; An already active is first canceled
-  (when my/elfeed-inactivity-timer
-    (cancel-timer my/elfeed-inactivity-timer)
-    (setq my/elfeed-inactivity-timer nil))
+    ;; An already active is first canceled
+    (when my/elfeed-inactivity-timer
+      (cancel-timer my/elfeed-inactivity-timer)
+      (setq my/elfeed-inactivity-timer nil))
 
-  ;; Then the timer resets.
-  (setq my/elfeed-inactivity-timer
-        (run-with-timer my/elfeed-inactivity-timeout nil
-		        (lambda ()
-                          ;; Save the database on inactivity
-                          (elfeed-db-save)
-                          ;; Mark as inactive
-                          (setq my/elfeed-inactivity-timer nil)
-                          (message "Elfeed: Database saved. Now inactive.")))))
+    ;; Then the timer resets.
+    (setq my/elfeed-inactivity-timer
+          (run-with-timer my/elfeed-inactivity-timeout nil
+                          (lambda ()
+                            ;; Save the database on inactivity
+                            (elfeed-db-save)
+                            ;; Mark as inactive
+                            (setq my/elfeed-inactivity-timer nil)
+                            (message "Elfeed: Database saved. Now inactive.")))))
 
   ;; Reset inactivity timer on Elfeed interactions
   (with-eval-after-load 'elfeed
@@ -1826,54 +1824,17 @@ This allows gracefully saving the database and not spamming while using it."
     (message "Elfeed: Saving database...")
     (elfeed-db-save)
     (quit-window)
-    (message "Elfeed: Database saved. Now inactive."))
+    (message "Elfeed: Database saved."))
 
-  (defun my/elfeed-load-db-and-open ()
-    "The elfeed opener funcion. If elfeed is inactive, it first reloads the database from disk."
-    (interactive)
-
-    ;; The check ensures we don't rewrite the database if we have unsaved changes.
-    (unless my/elfeed-inactivity-timer
-      (message "Elfeed: Loading database...")
-      (elfeed-db-load)
-      (elfeed-search-update--force))
-
-    (elfeed)
-    (my/elfeed-reset-inactivity-timer)
-    (message "Elfeed: Database loaded. Now active."))
-
-  (defun my/elfeed-updater ()
-    "If elfeed is inactive, reload the (potentially updated) database from disk.
-Ensures the database stays up to date even if elfeed continues to be open, but inactive."
-    (interactive)
-    (unless my/elfeed-inactivity-timer
-      (message "Elfeed: Syncing database...")
-      (elfeed-db-load)
-      (elfeed-search-update--force)
-      (message "Elfeed: Database synced."))
-    )
-
-  ;; Run updater every 5 minutes
-  ;; (cancel-function-timers 'my/elfeed-updater)
-  ;; (run-with-timer 0 (* 5 60) 'my/elfeed-updater)
-
-  (defun my/elfeed-check-on-focus ()
-    "Check for Elfeed updates when Emacs regains focus.
-Only updates if Elfeed is inactive (timer is nil) but still accessible."
-    (unless my/elfeed-inactivity-timer ;; Only recheck if inactive
-      
-      ;; Check for an Elfeed search buffer that is either:
-      ;; 1. Currently visible in a window, or
-      ;; 2. In the buffer list but not too far down (recently used)
+  (defun my/elfeed-update-if-visible ()
+    "Update Elfeed database if Elfeed buffer is visible and inactive."
+    (unless my/elfeed-inactivity-timer ;; Only update if inactive
+      ;; Check for a visible Elfeed search buffer
       (let* ((elfeed-buffer (get-buffer "*elfeed-search*"))
-             (buffer-visible (and elfeed-buffer (get-buffer-window elfeed-buffer)))
-             (buffer-recent (and elfeed-buffer 
-				 (member elfeed-buffer 
-					 (seq-take (buffer-list) 10))))
-             (go-p (or buffer-visible buffer-recent)))
-	
-	(when go-p
-          (message "Elfeed: Updating from disk on focus change...")
+             (buffer-visible (and elfeed-buffer (get-buffer-window elfeed-buffer))))
+        
+        (when buffer-visible
+          (message "Elfeed: Updating from disk...")
           ;; Load the database from disk
           (elfeed-db-load)
           
@@ -1884,28 +1845,30 @@ Only updates if Elfeed is inactive (timer is nil) but still accessible."
           ;; Restart the inactivity timer to prevent repeated updates
           (my/elfeed-reset-inactivity-timer)
           
-          (message "Elfeed: Database updated on focus change.")))))
+          (message "Elfeed: Database updated.")))))
 
-;; To use this function, add it to focus-in-hook in your elfeed use-package configuration:
-;; (add-hook 'focus-in-hook #'my/elfeed-check-on-focus)
+  ;; Set up focus change detection
+  ;; (add-hook 'focus-in-hook #'my/elfeed-update-if-visible)
 
-  
+  ;; Add window selection advice directly to the update function
+  (advice-add 'select-window :before (lambda (&rest _) (my/elfeed-update-if-visible)))
+
   (defun my/elfeed-force-pull ()
-  "Force load the Elfeed database from disk, regardless of activity status."
-  (interactive)
-  (when (yes-or-no-p "Force pull Elfeed database from disk? This will overwrite any unsaved local changes. ")
-    (message "Elfeed: Force pulling database...")
-    (elfeed-db-load)
-    (elfeed-search-update--force)
-    (message "Elfeed: Database force-pulled from disk.")))
+    "Force load the Elfeed database from disk, regardless of activity status."
+    (interactive)
+    (when (yes-or-no-p "Force pull Elfeed database from disk? This will overwrite any unsaved local changes. ")
+      (message "Elfeed: Force pulling database...")
+      (elfeed-db-load)
+      (elfeed-search-update--force)
+      (message "Elfeed: Database force-pulled from disk.")))
 
-(defun my/elfeed-force-push ()
-  "Force save the Elfeed database to disk, regardless of activity status."
-  (interactive)
-  (when (yes-or-no-p "Force push Elfeed database to disk? This may overwrite changes made on other devices. ")
-    (message "Elfeed: Force pushing database...")
-    (elfeed-db-save)
-    (message "Elfeed: Database force-pushed to disk.")))
+  (defun my/elfeed-force-push ()
+    "Force save the Elfeed database to disk, regardless of activity status."
+    (interactive)
+    (when (yes-or-no-p "Force push Elfeed database to disk? This may overwrite changes made on other devices. ")
+      (message "Elfeed: Force pushing database...")
+      (elfeed-db-save)
+      (message "Elfeed: Database force-pushed to disk.")))
 
   ) ; End of elfeed use-package block
 
