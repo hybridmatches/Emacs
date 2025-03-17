@@ -261,6 +261,9 @@
    ;; Registers ;;
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
+
+   (setq my/redshift t)
+   (my/apply-theme 'dark)
    ;; Bars ;;
    (menu-bar-mode -1)
 
