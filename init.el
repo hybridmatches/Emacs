@@ -76,7 +76,7 @@
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
 
-  (server-start)
+  (server-start))
 
 (use-package exec-path-from-shell
   :functions exec-path-from-shell-initialize
