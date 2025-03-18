@@ -1846,7 +1846,7 @@ This allows gracefully saving the database and not spamming while using it."
     (unless my/elfeed-inactivity-timer
       (message "Elfeed: Updating from disk...")
       (elfeed-db-load)
-      (message "Elfeed: Database updated.")
+      (message "Elfeed: Database updated. Activity timer started.")
       
       ;; Update the search buffer
       (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
