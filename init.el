@@ -1864,18 +1864,15 @@ This allows gracefully saving the database and not spamming while using it."
                           #'my/elfeed-inactivity-timer-function)))
 
   
-  ; Stop the timer when elfeed quits
+  ;; Stop the timer when elfeed quits
   (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
-  ;; We want the activity functions to reset the timer as well.
+
+  ;; Reset the timer on chosen functions
   (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
-  ;; Then add the hook to the list of functions
   (group-advise-functions elfeed-activity-function-group
 			  :before
 			  my/elfeed-activity-functions)
 
-  ;; Debug code - print out the advised functions
-  (message "Advised functions: %S" (group-list-advised-functions 'elfeed-activity-function-group))
-  
   ;; Misc manual sync functions 
   (defun my/elfeed-force-pull ()
     "Force load the Elfeed database from disk, regardless of activity status."
@@ -1893,7 +1890,6 @@ This allows gracefully saving the database and not spamming while using it."
       (message "Elfeed: Force pushing database...")
       (elfeed-db-save)
       (message "Elfeed: Database force-pushed to disk.")))
-
   ) ;
 ;;; End of elfeed use-package block
 
