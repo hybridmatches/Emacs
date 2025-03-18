@@ -1866,8 +1866,6 @@ This allows gracefully saving the database and not spamming while using it."
   
   ; Stop the timer when elfeed quits
   (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
-  ;; When elfeed opens, consider it active.
-  (add-hook 'elfeed-show-mode-hook #'my/elfeed-start-inactivity-timer)
   ;; We want the activity functions to reset the timer as well.
   (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
   ;; Then add the hook to the list of functions
