@@ -666,7 +666,7 @@
     '(0 2 0)
     '("h" "Multiple-cursors" ar/mc-mark-all-symbol-overlays))
   
-;;; https://lmno.lol/alvaro/its-all-up-for-grabs-and-it-compounds
+;; Adapted from https://lmno.lol/alvaro/its-all-up-for-grabs-and-it-compounds
   (defun ar/mc-mark-all-symbol-overlays ()
     "Mark all symbol overlays using multiple cursors."
     (interactive)
@@ -743,6 +743,18 @@
          ("J" . bookmark-jump))) ; optional
 
 ;;; TODO: Wgrep for deadgrep
+
+;;; --> Misc helper packages
+
+(use-package function-groups
+  :load-path "~/.emacs.d/lisp"
+  ;; :commands (function-group-create
+  ;;            function-group-add-function
+  ;;            function-group-remove-function
+  ;;            function-group-list-functions)
+  :config
+  ;; Any configuration you want to apply after loading
+  )
 
 ;;; --> Org mode
 
@@ -909,7 +921,8 @@ This function is expected to be hooked in org-mode."
           (browse-url-safari url)
 	(message "No URL at point"))))
 
-    ) ;; End of org-mode package block
+  ) ;;
+;;; End of org-mode package block
 
 (use-package org-fragtog)
 
@@ -943,13 +956,13 @@ This function is expected to be hooked in org-mode."
     (cond ((equal org-state "NEXT")
            (org-user/add-trigger-next))))
 
-   ;;; Automatically complete the parent with a statistics cookie when all children are complete
+   ;; Automatically complete the parent with a statistics cookie when all children are complete
   (defun org-summary-todo (_n-done n-not-done)
     "Switch entry to DONE when all subentries are done"
     (let (org-log-done org-todo-log-states) ; turn off logging
       (when (= n-not-done 0)
 	(org-todo "DONE"))))
-  ) ;; End of org-edna package block
+  )
 
 ;;; -> Org mode -> Org roam
 
@@ -1246,7 +1259,8 @@ you can catch it with `condition-case'."
                end (save-excursion (org-end-of-subtree t t))))
        (point-marker))))
 
-  ) ;; End of org-roam package block
+  ) ;;
+;;; End of org-roam package block
 
 (use-package org-roam-ui
   :after org-roam
@@ -1360,7 +1374,8 @@ you can catch it with `condition-case'."
   :hook
   (org-mode . tags/enable-tag-updating)
 
-  ) ;; End of vulpea package block
+  ) ;;
+;;; End of vulpea package block
 
 ;;; -> Org mode -> Agenda
 
@@ -1513,7 +1528,8 @@ you can catch it with `condition-case'."
     ;;   :m "S-<return>" #'org-agenda-switch-to
     ;;   :m "C-<return>" #'org-agenda-recenter))
 
-  ) ;; End of org agenda package block
+  ) ;;
+;;; End of org agenda package block
 
 ;;; -> Org mode -> Babel
 
@@ -1591,6 +1607,9 @@ you can catch it with `condition-case'."
 ;;; --> Elfeed
 
 (use-package elfeed
+  :defines
+  elfeed-search-mode-map
+  elfeed-show-mode-map
   :defer t
   :bind (("C-x w" . elfeed)
 	 :map elfeed-search-mode-map
@@ -1606,7 +1625,6 @@ you can catch it with `condition-case'."
 
 	 ("Y" . my/elfeed-force-push)
 	 ("R" . my/elfeed-force-pull)
-	 ("q" . my/elfeed-save-db-and-bury)
 	 
          :map elfeed-show-mode-map
          ("SPC" . elfeed-scroll-up-command)
@@ -1625,10 +1643,9 @@ you can catch it with `condition-case'."
   (elfeed-show-mode . mixed-pitch-mode)
   (elfeed-show-mode . visual-line-mode)
   (elfeed-show-mode . efs/org-mode-visual-fill)
-  (focus-in . my/elfeed-update-if-visible)
+
   :config
   ;; Variables
-  (setq shr-width 105)
   (setq-default elfeed-search-filter "-trash @6-months-ago +unread")
 
   ;; Functions
@@ -1770,24 +1787,75 @@ Executing a filter in bytecode form is generally faster than
       (elfeed-show-browse-url)))
 
 ;;; -> Elfeed -> Multi-Device Syncing
+  (require 'function-groups)
 
+  ;; I want to stop the activity timer on save.
+  (defvar elfeed-db-save-hook nil
+    "Functions in this list are called with no arguments any time the elfeed
+database is saved.")
+  (advice-add 'elfeed-db-save :after (lambda () (run-hooks 'elfeed-db-save-hook)))
+  
   (defvar my/elfeed-inactivity-timer nil
     "Timer to track Elfeed inactivity. When non-nil, Elfeed is considered active.
-In this case, we implicitly assume it is the true state of the database.")
+In this case, we deign it the true state of the database.")
 
-  (defvar my/elfeed-inactivity-timeout (* 30)
+  (defvar my/elfeed-inactivity-timeout 30
     "Time in seconds before considering Elfeed inactive (default: 30 seconds).
 The assumption is that common elfeed functions are advised to reset the timer.")
 
-  (defun my/elfeed-reset-inactivity-timer ()
+  (defvar my/elfeed-activity-functions
+    '(elfeed
+      elfeed-search-update--force ; g
+      elfeed-search-fetch         ; G
+      elfeed-search-browse-url    ; b
+      elfeed-search-show-entry    ; <SPC>
+      )
+    "List of Elfeed functions that should trigger activity monitoring.")
+
+  (define-function-group elfeed-activity-function-group)
+
+  (defun my/elfeed-stop-inactivity-timer ()
+    "Cancel the activity timer."
+    (interactive)
+
+    ;; If the timer is still running, cancel it first
+    (when my/elfeed-inactivity-timer
+      (cancel-timer my/elfeed-inactivity-timer))
+    
+    (setq my/elfeed-inactivity-timer nil)
+    (message "Elfeed: Now inactive.")
+    )
+
+  (defun my/elfeed-inactivity-timer-function ()
+    "Function to be run upon the activity timer completion."
+    (setq my/elfeed-inactivity-timer nil)
+
+    (message "Elfeed: Saving to disk...")
+    (elfeed-db-save)
+    (message "Elfeed: Database saved. Now inactive.")
+    )
+
+  (defun my/elfeed-start-inactivity-timer ()
     "Reset the inactivity timer for Elfeed.
-A potentially already active timer is first cancelled,
-then a new one is started.
+A potentially already active timer is first cancelled, then a new one is started.
+
+If we're going from inactive to active, the database is loaded from disk first.
 
 When the timer expires, it saves the database before marking Elfeed as inactive.
 This allows gracefully saving the database and not spamming while using it."
 
-    ;; An already active is first canceled
+    ;; If the timer isn't running yet, reload the database.
+    (unless my/elfeed-inactivity-timer
+      (message "Elfeed: Updating from disk...")
+      (elfeed-db-load)
+      (message "Elfeed: Database updated.")
+      
+      ;; Update the search buffer
+      (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
+	(with-current-buffer elfeed-buffer
+	  (elfeed-search-update))))
+    
+    ;; An already active timer is first canceled
     (when my/elfeed-inactivity-timer
       (cancel-timer my/elfeed-inactivity-timer)
       (setq my/elfeed-inactivity-timer nil))
@@ -1795,71 +1863,31 @@ This allows gracefully saving the database and not spamming while using it."
     ;; Then the timer resets.
     (setq my/elfeed-inactivity-timer
           (run-with-timer my/elfeed-inactivity-timeout nil
-                          (lambda ()
-                            ;; Save the database on inactivity
-                            (elfeed-db-save)
-                            ;; Mark as inactive
-                            (setq my/elfeed-inactivity-timer nil)
-                            (message "Elfeed: Database saved. Now inactive.")))))
+                          #'my/elfeed-inactivity-timer-function)))
 
-  ;; Reset inactivity timer on Elfeed interactions
-  (with-eval-after-load 'elfeed
-    (dolist (func '(elfeed-search-update--force
-                    elfeed-search-fetch
-                    elfeed-search-browse-url
-                    elfeed-search-show-entry))
-      (advice-add func :after
-                  (lambda (&rest _)
-                    (my/elfeed-reset-inactivity-timer)))))
+  
+  ; Stop the timer when elfeed quits
+  (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
+  ;; When elfeed opens, consider it active.
+  (add-hook 'elfeed-show-mode-hook #'my/elfeed-start-inactivity-timer)
+  ;; We want the activity functions to reset the timer as well.
+  (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
+  ;; Then add the hook to the list of functions
+  (group-advise-functions elfeed-activity-function-group
+			  :before
+			  my/elfeed-activity-functions)
 
-  (defun my/elfeed-save-db-and-bury ()
-    "Upon quitting, cancel the activity timer and write the changes to disk."
-    (interactive)
-
-    ;; Cancel the inactivity timer when explicitly quitting
-    (when my/elfeed-inactivity-timer
-      (cancel-timer my/elfeed-inactivity-timer)
-      (setq my/elfeed-inactivity-timer nil))
-    
-    (message "Elfeed: Saving database...")
-    (elfeed-db-save)
-    (quit-window)
-    (message "Elfeed: Database saved."))
-
-  (defun my/elfeed-update-if-visible ()
-    "Update Elfeed database if Elfeed buffer is visible and inactive."
-    (unless my/elfeed-inactivity-timer ;; Only update if inactive
-      ;; Check for a visible Elfeed search buffer
-      (let* ((elfeed-buffer (get-buffer "*elfeed-search*"))
-             (buffer-visible (and elfeed-buffer (get-buffer-window elfeed-buffer))))
-        
-        (when buffer-visible
-          (message "Elfeed: Updating from disk...")
-          ;; Load the database from disk
-          (elfeed-db-load)
-          
-          ;; Update the search buffer
-          (with-current-buffer elfeed-buffer
-            (elfeed-search-update--force))
-          
-          ;; Restart the inactivity timer to prevent repeated updates
-          (my/elfeed-reset-inactivity-timer)
-          
-          (message "Elfeed: Database updated.")))))
-
-  ;; Set up focus change detection
-  ;; (add-hook 'focus-in-hook #'my/elfeed-update-if-visible)
-
-  ;; Add window selection advice directly to the update function
-  (advice-add 'select-window :before (lambda (&rest _) (my/elfeed-update-if-visible)))
-
+  ;; Debug code - print out the advised functions
+  (message "Advised functions: %S" (group-list-advised-functions 'elfeed-activity-function-group))
+  
+  ;; Misc manual sync functions 
   (defun my/elfeed-force-pull ()
     "Force load the Elfeed database from disk, regardless of activity status."
     (interactive)
     (when (yes-or-no-p "Force pull Elfeed database from disk? This will overwrite any unsaved local changes. ")
       (message "Elfeed: Force pulling database...")
       (elfeed-db-load)
-      (elfeed-search-update--force)
+      (elfeed-search-update)
       (message "Elfeed: Database force-pulled from disk.")))
 
   (defun my/elfeed-force-push ()
@@ -1870,7 +1898,8 @@ This allows gracefully saving the database and not spamming while using it."
       (elfeed-db-save)
       (message "Elfeed: Database force-pushed to disk.")))
 
-  ) ; End of elfeed use-package block
+  ) ;
+;;; End of elfeed use-package block
 
 (use-package elfeed-org
   :after (elfeed org)
@@ -1972,7 +2001,8 @@ If a key is provided, use it instead of the default capture template."
     (interactive)
     (js/log-elfeed-entries 1 nil "p"))
   
-  ) ;; End of elfeed-org package block
+  ) ;;
+;;; End of elfeed-org package block
 
 ;;; -> Elfeed -> Elfeed-tube
 ;;; TODO: Rewrite the elfeed downloader
@@ -2087,7 +2117,8 @@ If a key is provided, use it instead of the default capture template."
     (interactive)
     (elfeed-filter-maker "+downloaded" "Showing previously downloaded items."))
 
-  ) ;; End of elfeed-tube package block
+  ) ;;
+;;; End of elfeed-tube package block
 
 ;;; --> Programming
 
@@ -2333,5 +2364,6 @@ It sets the transient map to all functions of ALIST."
       (funcall func arg)
       (set-transient-map keymap t))))
 
+;;;
 ;;; End of configuration file.
 ;;; init.el ends here
