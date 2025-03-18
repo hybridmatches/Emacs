@@ -230,6 +230,7 @@
 ;;; -> OS specific configuration
 
 (pcase system-type
+  ;;; MacOS Config 
   ('darwin
    (setq ns-alternate-modifier 'meta)
    (setq ns-right-alternate-modifier 'meta)
@@ -250,6 +251,7 @@
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
    )
+  ;;; Android configuration
   ('android
    (defvar org-roam-directory "~/Documents/org")
    (defvar org-directory "~/Documents/org")
@@ -260,15 +262,18 @@
    (set-register ?r '(file . "~/.emacs.d/init.el"))
    (set-register ?t `(file . ,(concat org-directory "/tasks.org")))
 
-   (setq my/redshift t)
    (my/apply-theme 'dark)
    ;; Bars ;;
    (menu-bar-mode -1)
 
    (tool-bar-mode 1)
    (setq tool-bar-position 'bottom)
-   (setq tool-bar-button-margin 27)
-
+   (setq tool-bar-button-margin 26)
+   (setq touch-screen-word-select t)
+   (setq touch-screen-extend-selection t)
+   (setq touch-screen-display-keyboard nil)
+   (setq touch-screen-enable-hscroll t)
+   
    (defun android-display-keyboard ()
      "Displays the Android on-screen keyboard for the current frame."
      (interactive)
@@ -281,7 +286,7 @@
     :help "Display Android keyboard")
    )
   
-  (_ (error "Unhandled operating system %s" system-type))
+  (_ (display-warning 'os "Unhandled operating system %s" system-type :warning))
   )
 
 ;;; -> Look and feel -> Fonts
