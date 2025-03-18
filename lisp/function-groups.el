@@ -24,9 +24,11 @@
 
 ;;; Commentary:
 
-;; This package provides a mechanism that can be considered the opposite of hooks.
-;; While hooks let you add functions to run at specific points, function groups
-;; let you specify a list of functions for which your function should run.
+;; This package provides a mechanism which is a combination of hooks and advice.
+;; A function group defines a hook which is run as advice to a list of
+;; functions. This allows us to easily and controllably define and control
+;; a situation where we wish to act as if we have a hook which runs when
+;; any of the functions in a given list run.
 ;;
 ;; Basic usage:
 ;;
