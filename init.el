@@ -759,30 +759,30 @@
          
          ;; Elfeed search mode bindings
          :map elfeed-search-mode-map
-         ("<KEYCODE_BUTTON_A>" . elfeed-search-show-entry)
-         ("<KEYCODE_BUTTON_B>" . elfeed-search-untag-all-unread)
-         ("<KEYCODE_BUTTON_X>" . js/log-elfeed-process)
-	 ("<KEYCODE_BUTTON_Y>" . elfeed-filter-trash)
-         ("<KEYCODE_BUTTON_R1>" . elfeed-search-browse-url)
-	 ("<KEYCODE_BUTTON_R2" . set-mark-command)
-	 ("<KEYCODE_BUTTON_L2>" . elfeed-search-clear-filter)
-         ("<KEYCODE_BUTTON_L1>" . my/elfeed-show-non-trash--no-search)
-         ("<KEYCODE_BUTTON_START>" . elfeed-search-fetch)
-         ("<KEYCODE_BUTTON_SELECT>" . elfeed-search-quit-window)
-	 ;; ("<KEYCODE_BUTTON_MODE" . nil)
+         ("KEYCODE_BUTTON_A" . elfeed-search-show-entry)
+         ("KEYCODE_BUTTON_B" . elfeed-search-untag-all-unread)
+         ("KEYCODE_BUTTON_X" . js/log-elfeed-process)
+	 ("KEYCODE_BUTTON_Y" . elfeed-filter-trash)
+         ("KEYCODE_BUTTON_R1" . elfeed-search-browse-url)
+	 ("KEYCODE_BUTTON_R2" . set-mark-command)
+	 ("KEYCODE_BUTTON_L2" . elfeed-search-clear-filter)
+         ("KEYCODE_BUTTON_L1" . my/elfeed-show-non-trash--no-search)
+         ("KEYCODE_BUTTON_START" . elfeed-search-fetch)
+         ("KEYCODE_BUTTON_SELECT" . elfeed-search-quit-window)
+	 ;; ("KEYCODE_BUTTON_MODE" . nil)
          
          ;; Elfeed show mode bindings
          :map elfeed-show-mode-map
-         ("<KEYCODE_BUTTON_A>" . elfeed-show-next)
-         ("<KEYCODE_BUTTON_B>" . elfeed-show-prev)
-	 ("<KEYCODE_BUTTON_X>" . elfeed-show-visit)
-         ("<KEYCODE_BUTTON_Y>" . elfeed-show-trash)
-         ("<KEYCODE_BUTTON_SELECT>" . elfeed-kill-buffer)
-         ("<KEYCODE_BUTTON_START>" .  js/log-elfeed-process)
-         ("<KEYCODE_BUTTON_L1>" . elfeed-scroll-up-command)
-         ("<KEYCODE_BUTTON_R1>" . elfeed-scroll-down-command)
-         ("<KEYCODE_BUTTON_L2>" . beginning-of-buffer)
-         ("<KEYCODE_BUTTON_R2>" . end-of-buffer)
+         ("KEYCODE_BUTTON_A" . elfeed-show-next)
+         ("KEYCODE_BUTTON_B" . elfeed-show-prev)
+	 ("KEYCODE_BUTTON_X" . elfeed-show-visit)
+         ("KEYCODE_BUTTON_Y" . elfeed-show-trash)
+         ("KEYCODE_BUTTON_SELECT" . elfeed-kill-buffer)
+         ("KEYCODE_BUTTON_START" .  js/log-elfeed-process)
+         ("KEYCODE_BUTTON_L1" . elfeed-scroll-up-command)
+         ("KEYCODE_BUTTON_R1" . elfeed-scroll-down-command)
+         ("KEYCODE_BUTTON_L2" . beginning-of-buffer)
+         ("KEYCODE_BUTTON_R2" . end-of-buffer)
          
          ;; Org-agenda bindings
          ;; :map org-agenda-mode-map
