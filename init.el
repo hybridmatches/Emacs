@@ -757,9 +757,7 @@
   :if (eq system-type 'android)
   :after elfeed
   :bind (;; Global bindings
-         ("<KEYCODE_BUTTON_MODE>" . (lambda () 
-                                     (interactive)
-                                     (message "🎮 Controller toggled!")))
+         ("<KEYCODE_BUTTON_MODE>" . elfeed)
          
          ;; Elfeed search mode bindings
          :map elfeed-search-mode-map
@@ -768,12 +766,12 @@
          ("<KEYCODE_BUTTON_Y>" . js/log-elfeed-process)          ; X
 	 ("<KEYCODE_BUTTON_X>" . elfeed-search-trash)            ; Y
          ("<KEYCODE_BUTTON_R1>" . elfeed-search-browse-url)
-	 ("<KEYCODE_BUTTON_R2>" . set-mark-command)
+	 ("<KEYCODE_BUTTON_R2>" . elfeed-search-tag-all-unread)
          ("<KEYCODE_BUTTON_L1>" . my/elfeed-show-non-trash--no-search)
-	 ("<KEYCODE_BUTTON_L2>" . elfeed-search-clear-filter)
+	 ("<KEYCODE_BUTTON_L2>" . set-mark-command)
          ("<KEYCODE_BUTTON_START>" . elfeed-search-fetch)
-         ("<KEYCODE_BUTTON_SELECT>" . elfeed-search-quit-window)
-	 ;; ("KEYCODE_BUTTON_MODE" . nil)
+         ("<KEYCODE_BUTTON_SELECT>" . elfeed-search-clear-filter)
+	 ("KEYCODE_BUTTON_MODE" . elfeed-search-quit-window)
          
          ;; Elfeed show mode bindings
          :map elfeed-show-mode-map
@@ -1869,7 +1867,7 @@ Executing a filter in bytecode form is generally faster than
     "Timer to track Elfeed inactivity. When non-nil, Elfeed is considered active.
 In this case, we deign it the true state of the database.")
 
-  (defvar my/elfeed-inactivity-timeout 30
+  (defvar my/elfeed-inactivity-timeout 15
     "Time in seconds before considering Elfeed inactive (default: 30 seconds).
 The assumption is that common elfeed functions are advised to reset the timer.")
 
