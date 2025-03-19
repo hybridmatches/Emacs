@@ -747,6 +747,66 @@
 
 ;;; TODO: Wgrep for deadgrep
 
+;;; -> Searching and navigation -> Controller support
+
+(use-package controller-bindings
+  :ensure nil  ;; Not a real package, just for organization
+  :if (eq system-type 'android)
+  :bind (;; Global bindings
+         ("<KEYCODE_BUTTON_MODE>" . (lambda () 
+                                     (interactive)
+                                     (message "🎮 Controller toggled!")))
+         
+         ;; Elfeed search mode bindings
+         :map elfeed-search-mode-map
+         ("<KEYCODE_BUTTON_A>" . elfeed-search-show-entry)
+         ("<KEYCODE_BUTTON_B>" . elfeed-search-untag-all-unread)
+         ("<KEYCODE_BUTTON_X>" . my/elfeed-show-non-trash)
+	 ("<KEYCODE_BUTTON_Y>" . elfeed-filter-trash)
+         ("<KEYCODE_BUTTON_R1>" . elfeed-search-browse-url)
+         ("<KEYCODE_BUTTON_L1>" . nil)
+         ("<KEYCODE_BUTTON_START>" . elfeed-search-fetch)
+         ("<KEYCODE_BUTTON_SELECT>" . elfeed-search-quit-window)
+         
+         ;; Elfeed show mode bindings
+         :map elfeed-show-mode-map
+         ("<KEYCODE_BUTTON_A>" . elfeed-show-visit)
+         ("<KEYCODE_BUTTON_B>" . elfeed-show-prev)
+         ("<KEYCODE_BUTTON_X>" . elfeed-show-trash)
+         ("<KEYCODE_BUTTON_Y>" . elfeed-show-next)
+         ("<KEYCODE_BUTTON_SELECT>" . js/log-elfeed-process)
+         ("<KEYCODE_BUTTON_START>" . elfeed-kill-buffer)
+         ("<KEYCODE_BUTTON_L1>" . scroll-down-command)
+         ("<KEYCODE_BUTTON_R1>" . scroll-up-command)
+         ("<KEYCODE_BUTTON_L2>" . beginning-of-buffer)
+         ("<KEYCODE_BUTTON_R2>" . end-of-buffer)
+         
+         ;; Org-agenda bindings
+         ;; :map org-agenda-mode-map
+         ;; ("<KEYCODE_BUTTON_A>" . org-agenda-goto)
+         ;; ("<KEYCODE_BUTTON_B>" . org-agenda-quit)
+         ;; ("<KEYCODE_BUTTON_X>" . org-agenda-todo)
+         ;; ("<KEYCODE_BUTTON_Y>" . org-agenda-schedule)
+         ;; ("<KEYCODE_BUTTON_L1>" . org-agenda-earlier)
+         ;; ("<KEYCODE_BUTTON_R1>" . org-agenda-later)
+         ;; ("<KEYCODE_BUTTON_L2>" . org-agenda-backward-block)
+         ;; ("<KEYCODE_BUTTON_R2>" . org-agenda-forward-block)
+         ;; ("<KEYCODE_BUTTON_SELECT>" . org-agenda-filter-by-tag)
+         ;; ("<KEYCODE_BUTTON_START>" . org-agenda-redo)
+         
+         ;; Dired bindings
+         ;; :map dired-mode-map
+         ;; ("<KEYCODE_BUTTON_A>" . dired-find-file)
+         ;; ("<KEYCODE_BUTTON_B>" . dired-up-directory)
+         ;; ("<KEYCODE_BUTTON_X>" . dired-mark)
+         ;; ("<KEYCODE_BUTTON_Y>" . dired-do-flagged-delete)
+         ;; ("<KEYCODE_BUTTON_L1>" . beginning-of-buffer)
+         ;; ("<KEYCODE_BUTTON_R1>" . end-of-buffer)
+         ;; ("<KEYCODE_BUTTON_SELECT>" . dired-toggle-marks)
+         ;; ("<KEYCODE_BUTTON_START>" . dired-do-shell-command)
+	 )
+  )
+
 ;;; --> Misc helper packages
 
 (use-package function-groups
@@ -1867,8 +1927,20 @@ This should be called on initial load and when switching to an elfeed window/fra
     (my/elfeed-start-inactivity-timer)
     )
 
-  ;; Stop the timer when elfeed quits
-  (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
+  (defun my/elfeed-shutdown ()
+    "If the elfeed timer wasn't running, reloads the database before quitting.
+Stops the ongoing activity timer.
+
+Made to be called as advice after `elfeed-search-quit-window'."
+    (unless my/elfeed-inactivity-timer
+      (elfeed-db-load)
+      (message "Elfeed: Database reloaded before exit.")
+      )
+    (my/elfeed-stop-inactivity-timer)
+    )
+
+
+  (advice-add 'elfeed-search-quit-window :before #'my/elfeed-shutdown)
 
   ;; Reset the timer on chosen functions
   (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
