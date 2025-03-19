@@ -782,8 +782,8 @@
          ("<KEYCODE_BUTTON_X>" . elfeed-show-trash) ; Y
          ("<KEYCODE_BUTTON_SELECT>" . elfeed-kill-buffer)
          ("<KEYCODE_BUTTON_START>" .  js/log-elfeed-process)
-         ("<KEYCODE_BUTTON_L1>" . elfeed-scroll-up-command)
-         ("<KEYCODE_BUTTON_R1>" . elfeed-scroll-down-command)
+         ("<KEYCODE_BUTTON_L1>" . elfeed-scroll-down-command)
+         ("<KEYCODE_BUTTON_R1>" . elfeed-scroll-up-command)
          ("<KEYCODE_BUTTON_L2>" . beginning-of-buffer)
          ("<KEYCODE_BUTTON_R2>" . end-of-buffer)
          
