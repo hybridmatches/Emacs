@@ -1791,12 +1791,6 @@ Executing a filter in bytecode form is generally faster than
 
 ;;; -> Elfeed -> Multi-Device Syncing
   (require 'function-groups)
-
-  ;; I want to stop the activity timer on save.
-  (defvar elfeed-db-save-hook nil
-    "Functions in this list are called with no arguments any time the elfeed
-database is saved.")
-  (advice-add 'elfeed-db-save :after (lambda () (run-hooks 'elfeed-db-save-hook)))
   
   (defvar my/elfeed-inactivity-timer nil
     "Timer to track Elfeed inactivity. When non-nil, Elfeed is considered active.
@@ -1868,7 +1862,6 @@ This allows gracefully saving the database and not spamming while using it."
           (run-with-timer my/elfeed-inactivity-timeout nil
                           #'my/elfeed-inactivity-timer-function)))
 
-  
   ;; Stop the timer when elfeed quits
   (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
 
