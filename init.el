@@ -759,16 +759,16 @@
          
          ;; Elfeed search mode bindings
          :map elfeed-search-mode-map
-         ("KEYCODE_BUTTON_A" . elfeed-search-show-entry)
-         ("KEYCODE_BUTTON_B" . elfeed-search-untag-all-unread)
-         ("KEYCODE_BUTTON_X" . js/log-elfeed-process)
-	 ("KEYCODE_BUTTON_Y" . elfeed-filter-trash)
-         ("KEYCODE_BUTTON_R1" . elfeed-search-browse-url)
-	 ("KEYCODE_BUTTON_R2" . set-mark-command)
-	 ("KEYCODE_BUTTON_L2" . elfeed-search-clear-filter)
-         ("KEYCODE_BUTTON_L1" . my/elfeed-show-non-trash--no-search)
-         ("KEYCODE_BUTTON_START" . elfeed-search-fetch)
-         ("KEYCODE_BUTTON_SELECT" . elfeed-search-quit-window)
+         ("<KEYCODE_BUTTON_A>" . elfeed-search-show-entry)
+         ("<KEYCODE_BUTTON_B" . elfeed-search-untag-all-unread)
+         ("<KEYCODE_BUTTON_X>" . js/log-elfeed-process)
+	 ("<KEYCODE_BUTTON_Y>" . elfeed-filter-trash)
+         ("<KEYCODE_BUTTON_R1>" . elfeed-search-browse-url)
+	 ("<KEYCODE_BUTTON_R2>" . set-mark-command)
+         ("<KEYCODE_BUTTON_L1>" . my/elfeed-show-non-trash--no-search)
+	 ("<KEYCODE_BUTTON_L2>" . elfeed-search-clear-filter)
+         ("<KEYCODE_BUTTON_START>" . elfeed-search-fetch)
+         ("<KEYCODE_BUTTON_SELECT>" . elfeed-search-quit-window)
 	 ;; ("KEYCODE_BUTTON_MODE" . nil)
          
          ;; Elfeed show mode bindings
