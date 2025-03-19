@@ -1837,22 +1837,9 @@ The assumption is that common elfeed functions are advised to reset the timer.")
     "Reset the inactivity timer for Elfeed.
 A potentially already active timer is first cancelled, then a new one is started.
 
-If we're going from inactive to active, the database is loaded from disk first.
-
 When the timer expires, it saves the database before marking Elfeed as inactive.
 This allows gracefully saving the database and not spamming while using it."
 
-    ;; If the timer isn't running yet, reload the database.
-    (unless my/elfeed-inactivity-timer
-      (message "Elfeed: Updating from disk...")
-      (elfeed-db-load)
-      (message "Elfeed: Database updated. Activity timer started.")
-      
-      ;; Update the search buffer
-      (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
-	(with-current-buffer elfeed-buffer
-	  (elfeed-search-update))))
-    
     ;; An already active timer is first canceled
     (when my/elfeed-inactivity-timer
       (cancel-timer my/elfeed-inactivity-timer)
@@ -1863,6 +1850,18 @@ This allows gracefully saving the database and not spamming while using it."
           (run-with-timer my/elfeed-inactivity-timeout nil
                           #'my/elfeed-inactivity-timer-function)))
 
+  (defun my/elfeed-load-database ()
+  "Load the Elfeed database from disk and update the search buffer.
+This should be called only on initial loading of Elfeed."
+  (message "Elfeed: Loading database from disk...")
+  (elfeed-db-load)
+  (message "Elfeed: Database loaded.")
+  
+  ;; Update the search buffer if it exists
+  (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
+    (with-current-buffer elfeed-buffer
+      (elfeed-search-update))))
+
   ;; Stop the timer when elfeed quits
   (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
 
@@ -1872,9 +1871,12 @@ This allows gracefully saving the database and not spamming while using it."
 			  :before
 			  my/elfeed-activity-functions)
 
+  ;; Reload the database on start and focus change
+  (defun my/elfeed-)
+
+  
   (defun my/elfeed-setup-local-activation-hooks ()
     "Set up buffer-local hooks for database reloading on activation."
-    ;; Add buffer-local hooks for focus and window changes
     (add-hook 'window-configuration-change-hook #'my/elfeed-start-inactivity-timer nil t)
     (add-hook 'focus-in-hook #'my/elfeed-start-inactivity-timer nil t))
 
