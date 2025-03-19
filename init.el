@@ -748,6 +748,9 @@
 ;;; TODO: Wgrep for deadgrep
 
 ;;; -> Searching and navigation -> Controller support
+;;;
+;;; Note: On the 8bitdo in switch mode on android, AB and XY are swapped between each other.
+;;;
 
 (use-package controller-bindings
   :ensure nil  ;; Not a real package, just for organization
@@ -759,10 +762,10 @@
          
          ;; Elfeed search mode bindings
          :map elfeed-search-mode-map
-         ("<KEYCODE_BUTTON_A>" . elfeed-search-show-entry)
-         ("<KEYCODE_BUTTON_B>" . elfeed-search-untag-all-unread)
-         ("<KEYCODE_BUTTON_X>" . js/log-elfeed-process)
-	 ("<KEYCODE_BUTTON_Y>" . elfeed-filter-trash)
+         ("<KEYCODE_BUTTON_B>" . elfeed-search-show-entry)       ; A
+         ("<KEYCODE_BUTTON_A>" . elfeed-search-untag-all-unread) ; B
+         ("<KEYCODE_BUTTON_Y>" . js/log-elfeed-process)          ; X
+	 ("<KEYCODE_BUTTON_X>" . elfeed-search-trash)            ; Y
          ("<KEYCODE_BUTTON_R1>" . elfeed-search-browse-url)
 	 ("<KEYCODE_BUTTON_R2>" . set-mark-command)
          ("<KEYCODE_BUTTON_L1>" . my/elfeed-show-non-trash--no-search)
@@ -773,10 +776,10 @@
          
          ;; Elfeed show mode bindings
          :map elfeed-show-mode-map
-         ("KEYCODE_BUTTON_A" . elfeed-show-next)
-         ("KEYCODE_BUTTON_B" . elfeed-show-prev)
-	 ("KEYCODE_BUTTON_X" . elfeed-show-visit)
-         ("KEYCODE_BUTTON_Y" . elfeed-show-trash)
+         ("KEYCODE_BUTTON_B" . elfeed-show-next)  ; A
+         ("KEYCODE_BUTTON_A" . elfeed-show-prev)  ; B
+	 ("KEYCODE_BUTTON_Y" . elfeed-show-visit) ; X
+         ("KEYCODE_BUTTON_X" . elfeed-show-trash) ; Y
          ("KEYCODE_BUTTON_SELECT" . elfeed-kill-buffer)
          ("KEYCODE_BUTTON_START" .  js/log-elfeed-process)
          ("KEYCODE_BUTTON_L1" . elfeed-scroll-up-command)
