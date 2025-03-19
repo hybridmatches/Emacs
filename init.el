@@ -752,14 +752,18 @@
 ;;; Note: On the 8bitdo in switch mode on android, AB and XY are swapped between each other.
 ;;;
 
+(use-package controller-bindings
+  :ensure nil  ;; Not a real package, just for organization
+  :if (eq system-type 'android)
+  :bind (("<KEYCODE_BUTTON_MODE>" . elfeed)
+	 )
+  )
+
 (use-package controller-bindings--elfeed
   :ensure nil  ;; Not a real package, just for organization
   :if (eq system-type 'android)
   :after elfeed
-  :bind (;; Global bindings
-         ("<KEYCODE_BUTTON_MODE>" . elfeed)
-         
-         ;; Elfeed search mode bindings
+  :bind (;; Elfeed search mode bindings
          :map elfeed-search-mode-map
          ("<KEYCODE_BUTTON_B>" . elfeed-search-show-entry)       ; A
          ("<KEYCODE_BUTTON_A>" . elfeed-search-untag-all-unread) ; B
