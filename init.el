@@ -775,7 +775,7 @@
 	 ("<KEYCODE_BUTTON_L2>" . set-mark-command)
          ("<KEYCODE_BUTTON_START>" . elfeed-search-fetch)
          ("<KEYCODE_BUTTON_SELECT>" . elfeed-search-clear-filter)
-	 ("KEYCODE_BUTTON_MODE" . elfeed-search-quit-window)
+	 ("<KEYCODE_BUTTON_MODE>" . elfeed-search-quit-window)
          
          ;; Elfeed show mode bindings
          :map elfeed-show-mode-map
@@ -783,12 +783,13 @@
          ("<KEYCODE_BUTTON_A>" . elfeed-show-prev)  ; B
 	 ("<KEYCODE_BUTTON_Y>" . elfeed-show-visit) ; X
          ("<KEYCODE_BUTTON_X>" . elfeed-show-trash) ; Y
-         ("<KEYCODE_BUTTON_SELECT>" . elfeed-kill-buffer)
+         ("<KEYCODE_BUTTON_SELECT>" . nil)
          ("<KEYCODE_BUTTON_START>" .  js/log-elfeed-process)
          ("<KEYCODE_BUTTON_L1>" . elfeed-scroll-down-command)
          ("<KEYCODE_BUTTON_R1>" . elfeed-scroll-up-command)
          ("<KEYCODE_BUTTON_L2>" . beginning-of-buffer)
          ("<KEYCODE_BUTTON_R2>" . end-of-buffer)
+	 ("<KEYCODE_BUTTON_MODE>" . elfeed-kill-buffer)
          
          ;; Org-agenda bindings
          ;; :map org-agenda-mode-map
