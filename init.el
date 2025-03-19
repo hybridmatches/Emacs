@@ -272,7 +272,7 @@
    (setq touch-screen-word-select t)
    (setq touch-screen-extend-selection t)
    (setq touch-screen-display-keyboard nil)
-   (setq touch-screen-enable-hscroll t)
+   (setq touch-screen-enable-hscroll nil)
    
    (defun android-display-keyboard ()
      "Displays the Android on-screen keyboard for the current frame."
