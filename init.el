@@ -1854,9 +1854,10 @@ This allows gracefully saving the database and not spamming while using it."
     "Load the Elfeed database from disk and update the search buffer.
 Also starts the activity timer.
 This should be called on initial load and when switching to an elfeed window/frame."
-    (message "Elfeed: Loading database from disk...")
-    (elfeed-db-load)
-    (message "Elfeed: Database loaded.")
+    (unless my/elfeed-inactivity-timer
+      (message "Elfeed: Loading database from disk...")
+      (elfeed-db-load)
+      (message "Elfeed: Database loaded."))
     
     ;; Update the search buffer if it exists
     (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
