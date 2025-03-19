@@ -1850,17 +1850,21 @@ This allows gracefully saving the database and not spamming while using it."
           (run-with-timer my/elfeed-inactivity-timeout nil
                           #'my/elfeed-inactivity-timer-function)))
 
-  (defun my/elfeed-load-database ()
-  "Load the Elfeed database from disk and update the search buffer.
-This should be called only on initial loading of Elfeed."
-  (message "Elfeed: Loading database from disk...")
-  (elfeed-db-load)
-  (message "Elfeed: Database loaded.")
-  
-  ;; Update the search buffer if it exists
-  (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
-    (with-current-buffer elfeed-buffer
-      (elfeed-search-update))))
+  (defun my/elfeed-initialize ()
+    "Load the Elfeed database from disk and update the search buffer.
+Also starts the activity timer.
+This should be called on initial load and when switching to an elfeed window/frame."
+    (message "Elfeed: Loading database from disk...")
+    (elfeed-db-load)
+    (message "Elfeed: Database loaded.")
+    
+    ;; Update the search buffer if it exists
+    (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
+      (with-current-buffer elfeed-buffer
+	(elfeed-search-update)))
+
+    (my/elfeed-start-inactivity-timer)
+    )
 
   ;; Stop the timer when elfeed quits
   (advice-add 'elfeed-search-quit-window :after #'my/elfeed-stop-inactivity-timer)
@@ -1870,17 +1874,13 @@ This should be called only on initial loading of Elfeed."
   (group-advise-functions elfeed-activity-function-group
 			  :before
 			  my/elfeed-activity-functions)
-
-  ;; Reload the database on start and focus change
-  (defun my/elfeed-)
-
   
   (defun my/elfeed-setup-local-activation-hooks ()
     "Set up buffer-local hooks for database reloading on activation."
-    (add-hook 'window-configuration-change-hook #'my/elfeed-start-inactivity-timer nil t)
-    (add-hook 'focus-in-hook #'my/elfeed-start-inactivity-timer nil t))
+    (add-hook 'window-configuration-change-hook #'my/elfeed-initialize nil t)
+    (add-hook 'focus-in-hook #'my/elfeed-initialize nil t))
 
-  ;; Misc manual sync functions 
+  ;; Misc manual sync functions
   (defun my/elfeed-force-pull ()
     "Force load the Elfeed database from disk, regardless of activity status."
     (interactive)
