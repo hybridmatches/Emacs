@@ -760,7 +760,7 @@
          ;; Elfeed search mode bindings
          :map elfeed-search-mode-map
          ("<KEYCODE_BUTTON_A>" . elfeed-search-show-entry)
-         ("<KEYCODE_BUTTON_B" . elfeed-search-untag-all-unread)
+         ("<KEYCODE_BUTTON_B>" . elfeed-search-untag-all-unread)
          ("<KEYCODE_BUTTON_X>" . js/log-elfeed-process)
 	 ("<KEYCODE_BUTTON_Y>" . elfeed-filter-trash)
          ("<KEYCODE_BUTTON_R1>" . elfeed-search-browse-url)
