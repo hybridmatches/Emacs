@@ -752,9 +752,10 @@
 ;;; Note: On the 8bitdo in switch mode on android, AB and XY are swapped between each other.
 ;;;
 
-(use-package controller-bindings
+(use-package controller-bindings--elfeed
   :ensure nil  ;; Not a real package, just for organization
   :if (eq system-type 'android)
+  :after elfeed
   :bind (;; Global bindings
          ("<KEYCODE_BUTTON_MODE>" . (lambda () 
                                      (interactive)
