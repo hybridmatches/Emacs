@@ -1609,6 +1609,7 @@ you can catch it with `condition-case'."
 
 ;;; --> Elfeed
 
+
 (use-package elfeed
   :defines
   elfeed-search-mode-map
@@ -1646,7 +1647,7 @@ you can catch it with `condition-case'."
   (elfeed-show-mode . mixed-pitch-mode)
   (elfeed-show-mode . visual-line-mode)
   (elfeed-show-mode . efs/org-mode-visual-fill)
-
+  (elfeed-search-mode . my/elfeed-setup-local-activation-hooks)
   :config
   ;; Variables
   (setq-default elfeed-search-filter "-trash @6-months-ago +unread")
@@ -1870,6 +1871,12 @@ This allows gracefully saving the database and not spamming while using it."
   (group-advise-functions elfeed-activity-function-group
 			  :before
 			  my/elfeed-activity-functions)
+
+  (defun my/elfeed-setup-local-activation-hooks ()
+    "Set up buffer-local hooks for database reloading on activation."
+    ;; Add buffer-local hooks for focus and window changes
+    (add-hook 'window-configuration-change-hook #'my/elfeed-start-inactivity-timer nil t)
+    (add-hook 'focus-in-hook #'my/elfeed-start-inactivity-timer nil t))
 
   ;; Misc manual sync functions 
   (defun my/elfeed-force-pull ()
