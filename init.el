@@ -1965,7 +1965,8 @@ Made to be called as advice after `elfeed-search-quit-window'."
   
   (defun my/elfeed-setup-local-activation-hooks ()
     "Set up buffer-local hooks for database reloading on activation."
-    (add-hook 'window-configuration-change-hook #'my/elfeed-initialize nil t)
+    ;; Temporarily disabled for testing
+    ;; (add-hook 'window-configuration-change-hook #'my/elfeed-initialize nil t)
     (add-hook 'focus-in-hook #'my/elfeed-initialize nil t))
 
   ;; Misc manual sync functions
