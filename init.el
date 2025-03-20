@@ -779,9 +779,9 @@
          
          ;; Elfeed show mode bindings
          :map elfeed-show-mode-map
-         ("<KEYCODE_BUTTON_B>" . elfeed-show-next)  ; A
-         ("<KEYCODE_BUTTON_A>" . elfeed-show-prev)  ; B
-	 ("<KEYCODE_BUTTON_Y>" . elfeed-show-visit) ; X
+         ("<KEYCODE_BUTTON_B>" . elfeed-show-visit)  ; A
+         ("<KEYCODE_BUTTON_A>" . elfeed-show-next)  ; B
+	 ("<KEYCODE_BUTTON_Y>" . elfeed-show-prev) ; X
          ("<KEYCODE_BUTTON_X>" . elfeed-show-trash) ; Y
          ("<KEYCODE_BUTTON_SELECT>" . nil)
          ("<KEYCODE_BUTTON_START>" .  js/log-elfeed-process)
