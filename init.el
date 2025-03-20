@@ -1928,18 +1928,13 @@ This allows gracefully saving the database and not spamming while using it."
   (defun my/elfeed-initialize ()
     "Load the Elfeed database from disk and update the search buffer.
 Also starts the activity timer.
-This should be called on initial load and when switching to an elfeed window/frame."
-    (unless my/elfeed-inactivity-timer
+This should be called on load and when switching to an elfeed window/frame."
+    (if my/elfeed-inactivity-timer
+	(my/elfeed-start-inactivity-timer) ;; just restart when already active
       (message "Elfeed: Loading database from disk...")
       (elfeed-db-load)
-      (message "Elfeed: Database loaded."))
-    
-    ;; Update the search buffer if it exists
-    (when-let ((elfeed-buffer (get-buffer "*elfeed-search*")))
-      (with-current-buffer elfeed-buffer
-	(elfeed-search-update)))
-
-    (my/elfeed-start-inactivity-timer)
+      (message "Elfeed: Database loaded.")
+      (elfeed-search-update--force)) ;; this starts the timer in this branch
     )
 
   (defun my/elfeed-shutdown ()
@@ -1954,7 +1949,8 @@ Made to be called as advice after `elfeed-search-quit-window'."
     (my/elfeed-stop-inactivity-timer)
     )
 
-
+  ;; Safe startup and shutdown
+  (advice-add 'elfeed :before #'my/elfeed-initialize)
   (advice-add 'elfeed-search-quit-window :before #'my/elfeed-shutdown)
 
   ;; Reset the timer on chosen functions
@@ -1966,7 +1962,7 @@ Made to be called as advice after `elfeed-search-quit-window'."
   (defun my/elfeed-setup-local-activation-hooks ()
     "Set up buffer-local hooks for database reloading on activation."
     ;; Temporarily disabled for testing
-    ;; (add-hook 'window-configuration-change-hook #'my/elfeed-initialize nil t)
+    (add-hook 'window-configuration-change-hook #'my/elfeed-initialize nil t)
     (add-hook 'focus-in-hook #'my/elfeed-initialize nil t))
 
   ;; Misc manual sync functions
