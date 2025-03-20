@@ -1954,9 +1954,16 @@ before exit in case another device made changes."
   "Handle tab switching by reloading the elfeed database if needed."
   (my/elfeed-initialize))
 
+(defun my/elfeed-save-on-kill-emacs ()
+  "Save elfeed database on Emacs exit if timer is active."
+  (when my/elfeed-inactivity-timer
+    (message "Elfeed: Saving database before Emacs exit...")
+    (elfeed-db-save)))
+
 ;; Startup and shutdown
 (advice-add 'elfeed :before #'my/elfeed-initialize)
 (advice-add 'elfeed-search-quit-window :before #'my/elfeed-shutdown)
+(add-hook 'kill-emacs-hook #'my/elfeed-save-on-kill-emacs)
 
 ;; Start activity timer only for functions that modify state
 (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
