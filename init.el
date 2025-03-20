@@ -1949,6 +1949,11 @@ before exit in case another device made changes."
     (message "Elfeed: Ensuring database sync before exit...")
     (elfeed-db-load)))
 
+;; Simple tab switching handler - only runs when in elfeed buffers
+(defun my/elfeed-tab-change-handler (&rest _)
+  "Handle tab switching by reloading the elfeed database if needed."
+  (my/elfeed-initialize))
+
 ;; Startup and shutdown
 (advice-add 'elfeed :before #'my/elfeed-initialize)
 (advice-add 'elfeed-search-quit-window :before #'my/elfeed-shutdown)
@@ -1961,8 +1966,8 @@ before exit in case another device made changes."
 
 (defun my/elfeed-setup-local-activation-hooks ()
   "Set up buffer-local hooks for database reloading on activation."
-  (add-hook 'window-configuration-change-hook #'my/elfeed-initialize nil t)
-  (add-hook 'focus-in-hook #'my/elfeed-initialize nil t))
+  (add-hook 'focus-in-hook #'my/elfeed-initialize nil t)
+  (add-hook 'tab-bar-tab-post-select-functions #'my/elfeed-tab-change-handler nil t))
 
 ;; Manual sync functions
 (defun my/elfeed-force-pull ()
