@@ -29,7 +29,7 @@
 (package-initialize)
 
 (setq use-package-always-ensure t)
-;; (setq package-native-compile t)
+(setq package-native-compile t)
 ;; (setq package-check-signature nil)
 
 (require 'use-package)
@@ -81,8 +81,7 @@
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
 
-  (unless (server-running-p)
-    (server-start))
+  (server-start)
 
   )
 
@@ -1170,14 +1169,14 @@ This function is expected to be hooked in org-mode."
   (defun org-roam-dailies-autocapture-today (keys &optional contents)
     "A function to automatically capture content into a daily template."
     (let ((org-roam-directory (expand-file-name org-roam-dailies-directory org-roam-directory))
-          (org-roam-dailies-directory "./"))
-      (unless (null contents)
-	(setq org-roam-capture-content contents))
+          (org-roam-dailies-directory "./")
+	  (org-roam-capture-content contents)
+	  )
       (org-roam-capture- :keys keys
 			 :node (org-roam-node-create)
 			 :templates org-roam-dailies-autocapture-templates
 			 :props (list :override-default-time (current-time)))
-      (setq org-roam-capture-content nil)))
+      ))
 
   (defun org-roam-link-make-string (id &optional description)
     "Makes an org-roam link string pointing to the given id.
