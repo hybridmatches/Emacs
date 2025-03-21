@@ -1493,7 +1493,9 @@ you can catch it with `condition-case'."
   (org-agenda-window-setup 'current-window)
   (org-agenda-sticky t)
 
-  :hook (org-agenda-mode . js/org-agenda-fold)
+  :hook
+  (org-agenda-mode . js/org-agenda-fold)
+  (org-agenda-mode . my/org-agenda-setup-refresh-hooks)
   :bind (("C-c a" . open-org-agenda)
 	 :map org-agenda-mode-map
 	 ("o" . ace-link-org-agenda)
@@ -1618,7 +1620,24 @@ you can catch it with `condition-case'."
     ;;   :m "<tab>" #'outline-toggle-children
     ;;   :m "<return>" #'org-agenda-goto
     ;;   :m "S-<return>" #'org-agenda-switch-to
-    ;;   :m "C-<return>" #'org-agenda-recenter))
+  ;;   :m "C-<return>" #'org-agenda-recenter))
+
+  ;;; Agenda refreshing
+  (defun my/org-agenda-refresh-on-focus ()
+    "Refresh the org-agenda buffer when it gains focus."
+    (when (eq major-mode 'org-agenda-mode)
+      (org-agenda-redo)
+      (message "Refreshed agenda.")))
+
+  (defun my/org-agenda-setup-refresh-hooks ()
+    "Set up buffer-local hooks for refreshing org-agenda on activation."
+    (add-hook 'focus-in-hook #'my/org-agenda-refresh-on-focus nil t)
+    (add-hook 'tab-bar-tab-post-select-functions 
+              (lambda (&rest _) (my/org-agenda-refresh-on-focus))
+              nil t))
+
+;; Add the hook to org-agenda-mode
+  
 
   ) ;;
 ;;; End of org agenda package block
