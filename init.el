@@ -18,20 +18,25 @@
 ;;; -> Initialization -> Package initialization
 
 (setq custom-file "~/.emacs.d/custom.el")
-(load custom-file)
+(when (file-exists-p custom-file)
+  (load custom-file))
+
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+;; Comment/uncomment this line to enable MELPA Stable if desired.  See `package-archive-priorities`
+;; and `package-pinned-packages`. Most users will not need or want to do this.
+;;(add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+(package-initialize)
+
+(setq use-package-always-ensure t)
+;; (setq package-native-compile t)
+;; (setq package-check-signature nil)
 
 (require 'use-package)
-(use-package package
-  :ensure t
-  :init
-  (add-to-list 'package-archives
-	       '("MELPA" . "http://melpa.org/packages/"))
-  (package-initialize)
-  :custom
-  (use-package-always-ensure t)
-  (package-native-compile t)
-  ;;(warning-minimum-level :emergency)
-  )
+
+(use-package exec-path-from-shell
+  :functions exec-path-from-shell-initialize
+  :init (exec-path-from-shell-initialize))
 
 ;;; -> Initialization -> Basic setup
 (use-package emacs
@@ -77,10 +82,6 @@
   (set-keyboard-coding-system 'utf-8)
 
   (server-start))
-
-(use-package exec-path-from-shell
-  :functions exec-path-from-shell-initialize
-  :init (exec-path-from-shell-initialize))
 
 (use-package benchmark-init
   :config
@@ -1007,9 +1008,9 @@ This function is expected to be hooked in org-mode."
   (org-superstar-leading-bullet ?\u2002)
   :hook org-mode)
 
-(use-package org-pretty-table
-  :vc (:url "https://github.com/Fuco1/org-pretty-table")
-  :hook org-mode)
+;; (use-package org-pretty-table
+;;   :vc (:url "https://github.com/Fuco1/org-pretty-table")
+;;   :hook org-mode)
 
 (use-package org-edna
   :after org
@@ -1061,7 +1062,7 @@ This function is expected to be hooked in org-mode."
          ("C-M-i" . completion-at-point)
          )
   :hook (org-roam-mode . visual-line-mode)
-
+  
   :custom
   (org-roam-mode-section-functions
    (list (lambda (node) (org-roam-backlinks-section
@@ -1086,6 +1087,8 @@ This function is expected to be hooked in org-mode."
   (org-archive-file-header-format nil)
 
   :config
+  (add-to-list 'org-roam-file-exclude-regexp ".stversions/" t)
+  
 ;;; -> org-roam -> Aesthetics
   ;; Color roam links differently
   (defface org-roam-link
@@ -1979,7 +1982,7 @@ before exit in case another device made changes."
 ;; Start activity timer only for functions that modify state
 (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
 (group-advise-functions elfeed-activity-function-group
-                        :before
+                        :after
                         my/elfeed-activity-functions)
 
 (defun my/elfeed-setup-local-activation-hooks ()
@@ -2415,10 +2418,10 @@ If a key is provided, use it instead of the default capture template."
 
 ;; (use-package lsp-ui)
 
-(use-package lean4-mode
-  :vc (:url "https://github.com/leanprover-community/lean4-mode")
-  ;; to defer loading the package until required
-  :commands (lean4-mode))
+;; (use-package lean4-mode
+;;   :vc (:url "https://github.com/leanprover-community/lean4-mode")
+;;   ;; to defer loading the package until required
+;;   :commands (lean4-mode))
 
 ;;; --> Misc functions
 
