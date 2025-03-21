@@ -1909,7 +1909,9 @@ After this timeout, database changes will be saved to disk.")
   "Reset the inactivity timer for Elfeed.
 This indicates the database has been modified and should be saved
 after a period of inactivity."
-  ;; Cancel any existing timer first
+  (unless my/elfeed-inactivity-timer
+    (message "Elfeed: Timer started."))
+  
   (when my/elfeed-inactivity-timer
     (cancel-timer my/elfeed-inactivity-timer)
     (setq my/elfeed-inactivity-timer nil))
