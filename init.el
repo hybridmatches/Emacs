@@ -1885,6 +1885,13 @@ After this timeout, database changes will be saved to disk.")
     elfeed-search-fetch          ; G
     elfeed-search-show-tag       ; tag through show mode
     elfeed-search-show-untag     ; untag through show mode
+    elfeed
+    elfeed-search-show-entry
+    elfeed-search-untag-all-unread
+    elfeed-search-trash
+    js/log-elfeed-process
+    elfeed-browse-url
+    elfeed-browse-url-firefox
     )
   "List of Elfeed functions that modify the database state.")
 
@@ -1923,13 +1930,15 @@ after a period of inactivity."
 
 (defun my/elfeed-load-db ()
   "Load the Elfeed database from disk.
-This is purely for viewing and doesn't indicate activity."
-  (message "Elfeed: Loading database from disk...")
-  (elfeed-db-load)
-  (when-let ((buffer (get-buffer "*elfeed-search*")))
-    (with-current-buffer buffer
-      (elfeed-search-update)))
-  (message "Elfeed: Database loaded."))
+This is purely for viewing and doesn't indicate activity.
+We should only load when inactive."
+  (unless my/elfeed-inactivity-timer
+    (message "Elfeed: Loading database from disk...")
+    (elfeed-db-load)
+    (when-let ((buffer (get-buffer "*elfeed-search*")))
+      (with-current-buffer buffer
+	(elfeed-search-update)))
+    (message "Elfeed: Database loaded.")))
 
 (defun my/elfeed-initialize ()
   "Load the Elfeed database from disk for viewing.
