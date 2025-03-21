@@ -896,10 +896,7 @@
    ("C-," . nil))
   
   :config
-  (defun org-capture-task ()
-    (interactive)
-    (org-capture nil "t"))
-
+  
   (defun js/org-rename-buffer-to-title ()
     "Rename buffer to value of #+TITLE:."
     (interactive)
@@ -1011,9 +1008,9 @@ This function is expected to be hooked in org-mode."
   (org-superstar-leading-bullet ?\u2002)
   :hook org-mode)
 
-;; (use-package org-pretty-table
-;;   :vc (:url "https://github.com/Fuco1/org-pretty-table")
-;;   :hook org-mode)
+(use-package org-pretty-table
+  :vc (:url "https://github.com/fuco1/org-pretty-table")
+  :hook org-mode)
 
 (use-package org-edna
   :after org
@@ -1110,10 +1107,11 @@ This function is expected to be hooked in org-mode."
     "Variable to pass content to capture templates.")
   
   (setq org-roam-capture-templates
-	'(("d" "default" plain
-	   "%?"
-	   :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
-	   :unnarrowed t)))
+      '(("d" "default" plain
+         "%?"
+         :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+         :unnarrowed t)
+        ))
 
   (defvar org-roam-autocapture-templates
     '(("r" "reference" plain "%?"
@@ -1128,6 +1126,22 @@ This function is expected to be hooked in org-mode."
 			      "#+title: %<%Y-%m-%d>\n#+startup: content"))
 	  ))
 
+  (defun org-capture-task ()
+    (interactive)
+    "A function to automatically capture content into a daily template."
+    (let (;(org-roam-directory (expand-file-name org-roam-dailies-directory org-roam-directory))
+	  ;(org-roam-dailies-directory "./")
+	  ;(org-roam-capture-content contents)
+	  )
+      (org-roam-capture- :keys "t"
+			 :node (org-roam-node-create)
+			 :templates '(("t" "task" entry "** TODO %?"
+				       :target (node "C6C9881B-7EF4-4DAF-A502-84D396372A68")
+				       :unnarrowed nil))
+			 ;:props (list :override-default-time (current-time))
+			 )
+      ))
+  
   (defvar org-roam-capture--browser nil
     "Variable to pass current browser to capture templates.")
   
