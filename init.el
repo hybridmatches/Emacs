@@ -81,7 +81,10 @@
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
 
-  (server-start))
+  (unless (server-running-p)
+    (server-start))
+
+  )
 
 (use-package benchmark-init
   :config
