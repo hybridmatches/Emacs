@@ -888,6 +888,7 @@
   :bind
   (("C-c l" . org-store-link)
    ("C-c C-l" . ar/org-insert-link-dwim)
+   ("C-c n o" . open-link-in-safari)
    :map org-mode-map
    ("M-o" . ace-link-org)
    ("C-c C-l" . ar/org-insert-link-dwim)
@@ -986,13 +987,62 @@ This function is expected to be hooked in org-mode."
     (interactive (browse-url-interactive-arg "URL: "))
     (shell-command-to-string (format "open -a Safari %s" (shell-quote-argument url))))
   
-  (defun open-link-in-safari ()
-    "Open the URL at point in Safari quietly."
-    (interactive)
-    (let ((url (thing-at-point 'url)))
-      (if url
-          (browse-url-safari url)
-	(message "No URL at point"))))
+  ;; (defun open-link-in-safari ()
+  ;;   "Open the URL at point in Safari quietly."
+  ;;   (interactive)
+  ;;   (let ((url (thing-at-point 'url)))
+  ;;     (if url
+  ;;         (browse-url-safari url)
+  ;; 	(message "No URL at point"))))
+
+  (defun open-link-in-safari (&optional arg)
+    "Open links in Safari.
+If region is active, extract and open all URLs found in the region.
+Otherwise, open the URL at point.
+With prefix ARG, prompt for browser choice."
+    (interactive "P")
+    (let ((browse-func #'browse-url-safari))
+      ;; With prefix arg, prompt for browser
+      (when arg
+	(let* ((browsers '(("Safari" . browse-url-safari) 
+                           ("Firefox" . browse-url-firefox)))
+               (choice (completing-read "Choose browser: " (mapcar #'car browsers))))
+          (setq browse-func (cdr (assoc choice browsers)))))
+      
+      ;; If region is active, process URLs in region
+      (if (use-region-p)
+          (let ((text (buffer-substring-no-properties (region-beginning) (region-end)))
+		(count 0))
+            ;; First try to extract URLs from HTML href attributes
+            (with-temp-buffer
+              (insert text)
+              (goto-char (point-min))
+              (while (re-search-forward "href=[\"']\\([^\"']+\\)[\"']" nil t)
+		(let ((url (match-string 1)))
+                  (when (string-match-p "^\\(https?://\\|www\\.\\)" url)
+                    (funcall browse-func url)
+                    (setq count (1+ count)))))
+              
+              ;; If no HTML links found, try plain text URLs
+              (when (= count 0)
+		(goto-char (point-min))
+		(while (re-search-forward "\\(https?://\\|www\\.\\)[^\s\n\"]+" nil t)
+                  (let ((url (match-string 0)))
+                    ;; Ensure URL has http/https prefix
+                    (when (string-match "^www\\." url)
+                      (setq url (concat "https://" url)))
+                    ;; Remove trailing punctuation
+                    (when (string-match "\\([.,:;\"']+\\)$" url)
+                      (setq url (substring url 0 (match-beginning 1))))
+                    (funcall browse-func url)
+                    (setq count (1+ count))))))
+            (message "Opened %d URLs in browser" count))
+	
+	;; Otherwise just use the existing function for single URL
+	(let ((url (thing-at-point 'url)))
+          (if url
+              (funcall browse-func url)
+            (message "No URL at point"))))))
 
   ) ;;
 ;;; End of org-mode package block
@@ -2359,7 +2409,8 @@ If a key is provided, use it instead of the default capture template."
          :map wallabag-entry-mode-map
          ;; Entry mode keys (same as before)
          ("SPC" . scroll-up-command)                  
-         ("S-SPC" . scroll-down-command)              
+         ("S-SPC" . scroll-down-command)
+         ("M-o" . ace-link-safari)
          ("b" . wallabag-browse-url)                  
          ("+" . wallabag-add-tags)                    
          ("-" . wallabag-remove-tag)                  
