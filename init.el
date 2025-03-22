@@ -1219,6 +1219,36 @@ This function is expected to be hooked in org-mode."
 	   :title "Org Logger" :category 'debug)
     )
 
+  (defun js/add-page-to-wallabag (&optional browser)
+    "Adds the currently open browser page to wallabag and logs it.
+BROWSER specifies which browser to get the URL from (defaults to Orion)."
+    (interactive)
+    ;; Set the browser for org-roam capture
+    (when browser
+      (setq org-roam-capture--browser browser))
+    
+    ;; Get the URL
+    (let ((url (js/retrieve-url browser)))
+      (if url
+          (progn
+            ;; 1. Add to wallabag
+            (message "Adding to wallabag: %s" url)
+            (wallabag-add-entry url)
+            
+            ;; 2. Log to daily file (using existing mechanism)
+            (org-roam-dailies-autocapture-today "w")
+            
+            ;; 3. Sync wallabag changes to server
+            (run-with-timer 2 nil #'wallabag-request-and-synchronize-entries)
+            
+            ;; 4. Provide feedback
+            (alert "Added page to wallabag and logged!"
+                   :title "Wallabag + Logger" :category 'debug))
+	(message "Could not retrieve URL from browser"))))
+  
+  ;; Reset the browser capture variable
+  (setq org-roam-capture--browser nil))
+
   (defun js/roamify-url-at-point ()
     "Convert a URL at point into an org-roam node and replace the link."
     (interactive)
@@ -2173,7 +2203,8 @@ If a key is provided, use it instead of the default capture template."
 	(when (or arg (js/elfeed-entry-should-be-logged-p entry))
           (let ((link (js/make-elfeed-entry-link entry)))
             (org-roam-dailies-autocapture-today (or keys "e") link)
-            (elfeed-tag entry 'logged))))))
+            (elfeed-tag entry 'logged))))
+      (elfeed-db-save)))
 
   (defun js/log-elfeed-process ()
     (interactive)
