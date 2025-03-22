@@ -2374,10 +2374,11 @@ If a key is provided, use it instead of the default capture template."
          ("f" . wallabag-update-entry-starred)        
          ("x" . wallabag-update-entry-archive)
 	 ("r" . wallabag-update-entry-archive))
-  :custom
+  :init
   ;; contains the wallabag info
   (load "~/.emacs.d/private-config.el")
   
+  :custom
   (wallabag-search-print-items '("title" "domain" "tag" "reading-time" "date"))
   (wallabag-search-page-max-rows 32)
   (url-automatic-caching t) ;; for image caching
