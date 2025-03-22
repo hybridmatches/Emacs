@@ -1236,9 +1236,6 @@ BROWSER specifies which browser to get the URL from (defaults to Orion)."
                  :title "Wallabag + Logger" :category 'debug))
       (message "Could not retrieve URL from browser"))))
   
-  ;; Reset the browser capture variable
-  (setq org-roam-capture--browser nil))
-
   (defun js/roamify-url-at-point ()
     "Convert a URL at point into an org-roam node and replace the link."
     (interactive)
