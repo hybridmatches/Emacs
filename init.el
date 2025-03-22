@@ -1200,51 +1200,41 @@ This function is expected to be hooked in org-mode."
   (defun js/log-page (&optional browser)
     "Captures the currently open browser page in today's org-roam daily journal file."
     (interactive)
-    (when browser
-      (setq org-roam-capture--browser browser))
-    (org-roam-dailies-autocapture-today "w")
-    (setq org-roam-capture--browser nil)
-    (alert "Logged page!"
-	   :title "Org Logger" :category 'debug)
-    )
+    (let ((org-roam-capture--browser browser))
+      (org-roam-dailies-autocapture-today "w")
+      (alert "Logged page!"
+             :title "Org Logger" :category 'debug)))
 
   (defun js/log-page-to-process (&optional browser)
-    "Captures the currently open safari page into the daily processing list."
-    (interactive)
-    (when browser
-      (setq org-roam-capture--browser browser))
+  "Captures the currently open safari page into the daily processing list."
+  (interactive)
+  (let ((org-roam-capture--browser browser))
     (org-roam-dailies-autocapture-today "r")
-    (setq org-roam-capture--browser nil)
     (alert "Logged page for processing!"
-	   :title "Org Logger" :category 'debug)
-    )
+           :title "Org Logger" :category 'debug)))
 
   (defun js/add-page-to-wallabag (&optional browser)
-    "Adds the currently open browser page to wallabag and logs it.
+  "Adds the currently open browser page to wallabag and logs it.
 BROWSER specifies which browser to get the URL from (defaults to Orion)."
-    (interactive)
-    ;; Set the browser for org-roam capture
-    (when browser
-      (setq org-roam-capture--browser browser))
-    
-    ;; Get the URL
-    (let ((url (js/retrieve-url browser)))
-      (if url
-          (progn
-            ;; 1. Add to wallabag
-            (message "Adding to wallabag: %s" url)
-            (wallabag-add-entry url)
-            
-            ;; 2. Log to daily file (using existing mechanism)
-            (org-roam-dailies-autocapture-today "w")
-            
-            ;; 3. Sync wallabag changes to server
-            (run-with-timer 2 nil #'wallabag-request-and-synchronize-entries)
-            
-            ;; 4. Provide feedback
-            (alert "Added page to wallabag and logged!"
-                   :title "Wallabag + Logger" :category 'debug))
-	(message "Could not retrieve URL from browser"))))
+  (interactive)
+  (let ((org-roam-capture--browser browser)
+        (url (js/retrieve-url browser)))
+    (if url
+        (progn
+          ;; Add to wallabag
+          (message "Adding to wallabag: %s" url)
+          (wallabag-add-entry url)
+          
+          ;; Log to daily file
+          (org-roam-dailies-autocapture-today "w")
+          
+          ;; Sync wallabag changes to server
+          (run-with-timer 2 nil #'wallabag-request-and-synchronize-entries)
+          
+          ;; Provide feedback
+          (alert "Added page to wallabag and logged!"
+                 :title "Wallabag + Logger" :category 'debug))
+      (message "Could not retrieve URL from browser"))))
   
   ;; Reset the browser capture variable
   (setq org-roam-capture--browser nil))
