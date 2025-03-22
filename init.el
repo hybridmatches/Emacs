@@ -1717,7 +1717,6 @@ you can catch it with `condition-case'."
 
 ;;; --> Elfeed
 
-
 (use-package elfeed
   :defines
   elfeed-search-mode-map
@@ -1734,6 +1733,7 @@ you can catch it with `condition-case'."
 	 ("s" . my/elfeed-show-non-trash)
 	 ("P" . js/log-elfeed-process)
 	 ("B" . elfeed-search-browse-url-firefox)
+	 ("W" . my/elfeed-entries-to-wallabag)
 
 	 ("Y" . my/elfeed-force-push)
 	 ("R" . my/elfeed-force-pull)
@@ -1747,6 +1747,7 @@ you can catch it with `condition-case'."
          ("i" . open-youtube-in-iina)
 	 ("M-o" . ace-link-safari)
 	 ("B" . elfeed-show-browse-url-firefox)
+	 ("W" . my/elfeed-entries-to-wallabag)
          )
   :custom
   (browse-url-firefox-program "open")
@@ -1902,6 +1903,38 @@ Executing a filter in bytecode form is generally faster than
     (interactive)
     (let ((browse-url-browser-function 'browse-url-firefox))
       (elfeed-show-browse-url)))
+
+;;; -> Elfeed -> Wallabag integration
+  (defun my/elfeed-entries-to-wallabag (&optional entries)
+    "Add elfeed entries to wallabag and sync to server.
+If ENTRIES is provided, use those instead of the selected entries.
+In show mode, adds the current entry; in search mode, adds all selected entries."
+    (interactive)
+    (let ((entries
+           (cond
+            (entries entries)
+            ((derived-mode-p 'elfeed-show-mode) (list elfeed-show-entry))
+            ((derived-mode-p 'elfeed-search-mode) (elfeed-search-selected))
+            (t (user-error "Not in an Elfeed buffer or no entries provided"))))
+          (added-count 0))
+      
+      ;; Process each entry
+      (dolist (entry entries)
+	(let ((url (elfeed-entry-link entry))
+              (title (elfeed-entry-title entry)))
+          (if url
+              (progn
+		(message "Adding to wallabag: %s" title)
+		(wallabag-add-entry url)
+		(cl-incf added-count))
+            (message "No URL found for entry: %s" title))))
+      
+      ;; Sync changes to server if we added anything
+      (when (> added-count 0)
+	(message "Syncing %d entries to wallabag server..." added-count)
+	(run-with-timer 2 nil #'wallabag-request-and-synchronize-entries))
+      
+      (message "Added %d entries to wallabag" added-count)))
 
 ;;; -> Elfeed -> Multi-Device Syncing
 (require 'function-groups)
@@ -2084,6 +2117,7 @@ before exit in case another device made changes."
   (advice-add 'elfeed-search-browse-url :before #'js/log-elfeed-entries)
   (advice-add 'elfeed-search-show-entry :after #'js/elfeed-search-logger)
   (advice-add 'open-youtube-in-iina :before #'js/log-elfeed-entries)
+  (advice-add 'my/elfeed-entries-to-wallabag :before #'js/log-elfeed-entries)
 
   (defun js/elfeed-search-logger (entry)
     "Wrapper for elfeed entry logger for elfeed-search-show-entry"
@@ -2144,7 +2178,6 @@ If a key is provided, use it instead of the default capture template."
   (defun js/log-elfeed-process ()
     (interactive)
     (js/log-elfeed-entries 1 nil "p"))
-  
   ) ;;
 ;;; End of elfeed-org package block
 
@@ -2276,52 +2309,158 @@ If a key is provided, use it instead of the default capture template."
   :after request emacsql
   :bind (("C-x W" . wallabag)
          :map wallabag-search-mode-map
-         ;; Mirror elfeed-search-mode keys
-         ("SPC" . wallabag-view)                        ; Like elfeed-search-show-entry
-         ("+" . wallabag-add-tags)                      ; Like elfeed-search-tag-all
-         ("-" . wallabag-remove-tag)                    ; Like elfeed-search-untag-all
-         ("b" . wallabag-browse-url)                    ; Like elfeed-search-browse-url
-         ("B" . wallabag-browse-url-firefox)            ; Like elfeed-search-browse-url-firefox
-         ("g" . wallabag-search-refresh-and-clear-filter) ; Like elfeed-search-update--force
-         ("G" . wallabag-search-update-and-clear-filter)  ; Like elfeed-search-fetch
-         ("s" . wallabag-search-live-filter)            ; Like elfeed-search-live-filter
-         ("c" . wallabag-search-clear-filter)           ; Like elfeed-search-clear-filter
-         ("q" . wallabag-search-quit)                   ; Like elfeed-search-quit-window
-         ("n" . wallabag-next-entry)                    ; Like next-line
-         ("p" . wallabag-previous-entry)                ; Like previous-line
-         ("t" . wallabag-delete-entry)                  ; Like elfeed-search-trash
-         ("r" . wallabag-update-entry-archive)          ; Like elfeed-search-untag-all-unread (mark as read)
-         ("y" . wallabag-org-link-copy)                 ; Like elfeed-search-yank
-         ("i" . wallabag-add-entry)                     ; Similar to open-youtube-in-iina
-         ("f" . wallabag-update-entry-starred)          ; Similar to elfeed-search-tag-all-unread
-         ("u" . wallabag-search-update-and-clear-filter) ; For update (previously on "r")
+         ;; Basic navigation and viewing
+         ("SPC" . wallabag-view)
+         ("b" . wallabag-browse-url)                  
+         ("B" . wallabag-browse-url-firefox)          
+         ("n" . wallabag-next-entry)                 
+         ("p" . wallabag-previous-entry)               
+         ("q" . wallabag-search-quit)                 
+         
+         ;; Filtering and display options
+         ("c" . my/wallabag-show-unarchived)          ; Mirror elfeed's clear filter - show default view
+         ("s" . my/wallabag-show-all)                 ; Show all entries including archived
+         ("S" . wallabag-search-live-filter)          ; Search functionality
+         
+         ;; Tag and status management
+         ("+" . wallabag-add-tags)                    
+         ("-" . wallabag-remove-tag)                  
+         ("t" . wallabag-delete-entry)                
+         ("f" . wallabag-update-entry-starred)        
+         
+         ;; Other functions
+         ("y" . wallabag-org-link-copy)               
+         ("i" . wallabag-add-entry)                   
+         ("g" . wallabag-search-refresh-and-clear-filter)
+         ("G" . wallabag-search-update-and-clear-filter)
+	 ("R" . wallabag-search-synchronize-and-clear-filter)
+	 ("Y" . wallabag-full-update)
+         ("r" . wallabag-update-entry-archive)
          
          :map wallabag-entry-mode-map
-         ;; Mirror elfeed-show-mode keys
-         ("SPC" . scroll-up-command)                    ; Like elfeed-scroll-up-command
-         ("S-SPC" . scroll-down-command)                ; Like elfeed-scroll-down-command
-         ("b" . wallabag-browse-url)                    ; Like elfeed-show-visit
-         ("+" . wallabag-add-tags)                      ; Like elfeed-show-tag
-         ("-" . wallabag-remove-tag)                    ; Like elfeed-show-untag
-         ("q" . wallabag-entry-quit)                    ; Like elfeed-kill-buffer
-         ("n" . wallabag-next-entry)                    ; Like elfeed-show-next
-         ("p" . wallabag-previous-entry)                ; Like elfeed-show-prev
-         ("g" . wallabag-view)                          ; Like elfeed-show-refresh
-         ("t" . wallabag-delete-entry)                  ; Like elfeed-show-trash
-         ("r" . wallabag-update-entry-archive)          ; Like marking as read in elfeed
-         ("<" . beginning-of-buffer)                    ; Like beginning-of-buffer
-         (">" . end-of-buffer)                          ; Like end-of-buffer
-         ("y" . wallabag-org-link-copy)                 ; Like elfeed-show-yank
-         ("f" . wallabag-update-entry-starred)          ; For starring/unstarring
-         )
+         ;; Entry mode keys (same as before)
+         ("SPC" . scroll-up-command)                  
+         ("S-SPC" . scroll-down-command)              
+         ("b" . wallabag-browse-url)                  
+         ("+" . wallabag-add-tags)                    
+         ("-" . wallabag-remove-tag)                  
+         ("q" . wallabag-entry-quit)                  
+         ("n" . wallabag-next-entry)                  
+         ("p" . wallabag-previous-entry)              
+         ("g" . wallabag-view)                        
+         ("t" . wallabag-delete-entry)                
+         ("<" . beginning-of-buffer)                  
+         (">" . end-of-buffer)                        
+         ("y" . wallabag-org-link-copy)               
+         ("f" . wallabag-update-entry-starred)        
+         ("x" . wallabag-update-entry-archive)
+	 ("r" . wallabag-update-entry-archive))
   :custom
+  ;; contains the wallabag info
   (load "~/.emacs.d/private-config.el")
+  
   (wallabag-search-print-items '("title" "domain" "tag" "reading-time" "date"))
   (wallabag-search-page-max-rows 32)
-  (url-automatic-caching t)
-  (wallabag-show-entry-switch #'switch-to-buffer)
+  (url-automatic-caching t) ;; for image caching
+  
+  ;; Set default filter to unarchived only
+  (wallabag-search-filter "Unread")
+  
   :hook
-  (wallabag-after-render-hook . wallabag-search-update-and-clear-filter))
+  (wallabag-after-render-hook . my/wallabag-initialize-view)
+  
+  :config
+  ;; Set up our custom parsers
+  (advice-add 'wallabag-parse-entry-as-string :override
+              #'my/wallabag-parse-entry-as-string-with-archive-status)
+  
+  ;; Initialize with unarchived view
+  (advice-add 'wallabag :after #'my/wallabag-initialize-view)
+
+  ;; Define a custom face for archived entries
+  (defface my/wallabag-archived-face
+    '((t :inherit wallabag-title-face :foreground "#888888" :slant italic))
+    "Face for archived wallabag entries.")
+
+  (defun my/wallabag-show-unarchived ()
+    "Show only unarchived wallabag entries (default view)."
+    (interactive)
+    (setq wallabag-group-filteringp t)
+    (wallabag-search-update-buffer-with-keyword "Unread")
+    (message "Showing unarchived entries only"))
+
+  (defun my/wallabag-show-all ()
+    "Show all wallabag entries, including archived ones."
+    (interactive)
+    (setq wallabag-group-filteringp t)
+    (wallabag-search-update-buffer-with-keyword "All")
+    (message "Showing all entries (including archived)"))
+
+  (defun my/wallabag-initialize-view ()
+    "Initialize wallabag to show only unarchived entries by default."
+    (my/wallabag-show-unarchived))
+
+  (defun wallabag-get-item-value (item entry)
+    "Get the formatted value for ITEM from ENTRY."
+    (pcase item
+      ("date" (propertize
+               (let* ((created-at (alist-get 'created_at entry))
+                      (created-at-days (string-to-number 
+					(format-seconds "%d" (+ (float-time 
+								 (time-subtract (current-time) 
+										(encode-time (parse-time-string created-at))))
+								86400)))))
+		 (cond ((< created-at-days 7)
+			(format "%sd" created-at-days))
+                       ((< created-at-days 30)
+			(format "%sw" (/ created-at-days 7)))
+                       ((< created-at-days 365)
+			(format "%sm" (/ created-at-days 30)))
+                       (t
+			(format "%sy" (/ created-at-days 365)))))
+               'face 'wallabag-date-face))
+      ("domain" (propertize (or (alist-get 'domain_name entry) "") 
+                            'face 'wallabag-domain-name-face))
+      ("tag" (let ((tag (alist-get 'tag entry)))
+               (format (if (string-empty-p tag) "" "(%s)" )
+                       (propertize tag 'face 'wallabag-tag-face))))
+      ("reading-time" (propertize (concat (number-to-string (alist-get 'reading_time entry)) " min") 
+				  'face 'wallabag-reading-time-face))
+      ("seperator" (format "\n%s" (make-string (window-width) ?-)))
+      (_ item)))
+
+  (defun my/wallabag-parse-entry-as-string-with-archive-status (entry)
+    "Parse wallabag ENTRY and return as string with archive status indicator."
+    (let* ((title (or (alist-get 'title entry) "NO TITLE"))
+           (is-archived (alist-get 'is_archived entry))
+           (is-starred (alist-get 'is_starred entry))
+           (star (if (= is-starred 0)
+                     ""
+                   (format "%s " (propertize wallabag-starred-icon
+                                             'face 'wallabag-starred-face
+                                             'mouse-face 'wallabag-mouse-face
+                                             'help-echo "Filter the favorite items"))))
+           ;; Add archive indicator
+           (archive-indicator (if (= is-archived 0)
+				  ""
+				(format "%s " (propertize "✓"
+							  'face 'shadow
+							  'mouse-face 'wallabag-mouse-face
+							  'help-echo "Archived entry")))))
+      
+      ;; Concatenate items with their formatted values
+      (mapconcat #'identity
+		 (cl-loop for item in wallabag-search-print-items
+                          collect (pcase item
+                                    ("title" (format "%s%s%s" 
+                                                     star
+                                                     archive-indicator
+                                                     (if (= is-archived 0)
+							 (propertize title 'face 'wallabag-title-face)
+                                                       (propertize title 'face 'my/wallabag-archived-face))))
+                                    (_ (wallabag-get-item-value item entry))))
+		 " ")))
+  )
 ;;; --> Programming
 
 (use-package magit
