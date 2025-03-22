@@ -2042,7 +2042,7 @@ before exit in case another device made changes."
     (message "Elfeed: Force pushing database...")
     (elfeed-db-save)
     (message "Elfeed: Database force-pushed to disk.")))
-  ) ;
+  )
 ;;; End of elfeed use-package block
 
 (use-package elfeed-org
@@ -2264,6 +2264,64 @@ If a key is provided, use it instead of the default capture template."
   ) ;;
 ;;; End of elfeed-tube package block
 
+;;; --> Wallabag
+
+(use-package request
+  :ensure t)
+(use-package emacsql
+  :ensure t)
+
+(use-package wallabag
+  :defer t
+  :after request emacsql
+  :bind (("C-x W" . wallabag)
+         :map wallabag-search-mode-map
+         ;; Mirror elfeed-search-mode keys
+         ("SPC" . wallabag-view)                        ; Like elfeed-search-show-entry
+         ("+" . wallabag-add-tags)                      ; Like elfeed-search-tag-all
+         ("-" . wallabag-remove-tag)                    ; Like elfeed-search-untag-all
+         ("b" . wallabag-browse-url)                    ; Like elfeed-search-browse-url
+         ("B" . wallabag-browse-url-firefox)            ; Like elfeed-search-browse-url-firefox
+         ("g" . wallabag-search-refresh-and-clear-filter) ; Like elfeed-search-update--force
+         ("G" . wallabag-search-update-and-clear-filter)  ; Like elfeed-search-fetch
+         ("s" . wallabag-search-live-filter)            ; Like elfeed-search-live-filter
+         ("c" . wallabag-search-clear-filter)           ; Like elfeed-search-clear-filter
+         ("q" . wallabag-search-quit)                   ; Like elfeed-search-quit-window
+         ("n" . wallabag-next-entry)                    ; Like next-line
+         ("p" . wallabag-previous-entry)                ; Like previous-line
+         ("t" . wallabag-delete-entry)                  ; Like elfeed-search-trash
+         ("r" . wallabag-update-entry-archive)          ; Like elfeed-search-untag-all-unread (mark as read)
+         ("y" . wallabag-org-link-copy)                 ; Like elfeed-search-yank
+         ("i" . wallabag-add-entry)                     ; Similar to open-youtube-in-iina
+         ("f" . wallabag-update-entry-starred)          ; Similar to elfeed-search-tag-all-unread
+         ("u" . wallabag-search-update-and-clear-filter) ; For update (previously on "r")
+         
+         :map wallabag-entry-mode-map
+         ;; Mirror elfeed-show-mode keys
+         ("SPC" . scroll-up-command)                    ; Like elfeed-scroll-up-command
+         ("S-SPC" . scroll-down-command)                ; Like elfeed-scroll-down-command
+         ("b" . wallabag-browse-url)                    ; Like elfeed-show-visit
+         ("+" . wallabag-add-tags)                      ; Like elfeed-show-tag
+         ("-" . wallabag-remove-tag)                    ; Like elfeed-show-untag
+         ("q" . wallabag-entry-quit)                    ; Like elfeed-kill-buffer
+         ("n" . wallabag-next-entry)                    ; Like elfeed-show-next
+         ("p" . wallabag-previous-entry)                ; Like elfeed-show-prev
+         ("g" . wallabag-view)                          ; Like elfeed-show-refresh
+         ("t" . wallabag-delete-entry)                  ; Like elfeed-show-trash
+         ("r" . wallabag-update-entry-archive)          ; Like marking as read in elfeed
+         ("<" . beginning-of-buffer)                    ; Like beginning-of-buffer
+         (">" . end-of-buffer)                          ; Like end-of-buffer
+         ("y" . wallabag-org-link-copy)                 ; Like elfeed-show-yank
+         ("f" . wallabag-update-entry-starred)          ; For starring/unstarring
+         )
+  :custom
+  (load "~/.emacs.d/private-config.el")
+  (wallabag-search-print-items '("title" "domain" "tag" "reading-time" "date"))
+  (wallabag-search-page-max-rows 32)
+  (url-automatic-caching t)
+  (wallabag-show-entry-switch #'switch-to-buffer)
+  :hook
+  (wallabag-after-render-hook . wallabag-search-update-and-clear-filter))
 ;;; --> Programming
 
 (use-package magit
@@ -2485,7 +2543,7 @@ If a key is provided, use it instead of the default capture template."
 Calling with single prefix ARG (C-u) enables debugging.
 Calling with double prefix ARG (C-u C-u) runs Emacs with -Q."
   (interactive "P")
-  (let* ((emacs-path "/opt/homebrew/Cellar/emacs-plus@30/30.0.60/Emacs.app/Contents/MacOS/Emacs")
+  (let* ((emacs-path "/opt/homebrew/Cellar/emacs-plus@30/30.1/Emacs.app/Contents/MacOS/Emacs")
          (current-dir (if buffer-file-name
                           (file-name-directory buffer-file-name)
                         default-directory))
