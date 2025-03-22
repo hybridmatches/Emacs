@@ -2324,6 +2324,7 @@ If a key is provided, use it instead of the default capture template."
 
 (use-package wallabag
   :defer t
+  :load-path "~/.emacs.d/lisp/wallabag/"
   :after request emacsql
   :bind (("C-x W" . wallabag)
          :map wallabag-search-mode-map
