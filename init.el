@@ -589,7 +589,7 @@
 	 ("C-c n e d" . deadgrep-search-org-roam-dailies)
 	 ("C-c n e n" . deadgrep-search-org-roam)
 	 :map deadgrep-mode-map
-	 ("q" . kill-current-buffer))
+	 ("q" . quit-window--and-kill))
   :config
   (defun deadgrep-search-directory (dir)
     "Search a specific directory using deadgrep."
@@ -2830,6 +2830,12 @@ It sets the transient map to all functions of ALIST."
       (interactive "p")
       (funcall func arg)
       (set-transient-map keymap t))))
+
+(defun quit-window--and-kill ()
+  "Quit and kill the buffer, also closing its window."
+  (interactive)
+  (quit-window t))
+
 
 ;;;
 ;;; End of configuration file.
