@@ -754,44 +754,9 @@
 
 (use-package wiki-summary
   :bind ("C-c n w" . wiki-summary)
-  :config
-  (defun my/wiki-summary-copy-all ()
-    "Copy the entire wiki-summary buffer content to kill ring."
-    (interactive)
-    (save-excursion
-      (mark-whole-buffer)
-      (kill-ring-save (region-beginning) (region-end))
-      (deactivate-mark)
-      (message "Copied summary to kill ring")))
-  
-  (defun my/wiki-summary-insert-to-original ()
-    "Insert wiki-summary content into the original buffer and close summary buffer."
-    (interactive)
-    (let ((content (buffer-substring-no-properties (point-min) (point-max)))
-          (wiki-buffer (current-buffer))
-          (orig-window (get-buffer-window (other-buffer (current-buffer) t))))
-      (if orig-window
-          (with-selected-window orig-window
-            (insert content)
-            (message "Inserted summary to original buffer"))
-        (switch-to-buffer-other-window (other-buffer (current-buffer) t))
-        (insert content)
-        (message "Inserted summary to buffer"))
-      ;; Kill the wiki-summary buffer after insertion
-      (kill-buffer wiki-buffer)))
-  
-  (defun my/wiki-summary-quit-config ()
-    "Add keybindings to wiki-summary buffers."
-    (when (string= (buffer-name) "*wiki-summary*")
-      ;; Quit buffer
-      (local-set-key (kbd "q") 'kill-this-buffer)
-      ;; Copy all content to kill ring
-      (local-set-key (kbd "y") 'my/wiki-summary-copy-all)
-      ;; Insert content to original buffer and quit
-      (local-set-key (kbd "i") 'my/wiki-summary-insert-to-original)))
-  
-  :hook
-  (view-mode . my/wiki-summary-quit-config))
+  ;; :vc (:url "https://github.com/Tevqoon/wiki-summary.el")
+  :load-path "~/.emacs.d/lisp/wiki-summary.el/"
+  )
 
 ;;; -> Searching and navigation -> Controller support
 ;;;
