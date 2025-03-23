@@ -2464,6 +2464,8 @@ If a key is provided, use it instead of the default capture template."
   (wallabag-after-render-hook . my/wallabag-initialize-view)
   
   :config
+  (setq wallabag-show-entry-switch #'switch-to-buffer)
+
   ;; Set up our custom parsers
   (advice-add 'wallabag-parse-entry-as-string :override
               #'my/wallabag-parse-entry-as-string-with-archive-status)
