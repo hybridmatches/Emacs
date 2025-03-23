@@ -156,6 +156,13 @@
   ;; (alert "This is an alert" :title "My Alert" :category 'debug)
   )
 
+(use-package helpful
+  :bind (([remap describe-function] . helpful-callable)
+         ([remap describe-variable] . helpful-variable)
+         ([remap describe-key] . helpful-key)
+         :map help-map
+         ("p" . helpful-at-point)))
+
 ;;; -> Look and feel -> Tabs, frames, windows
 
 (use-package tab-bar
@@ -2715,7 +2722,20 @@ If a key is provided, use it instead of the default capture template."
   (LaTeX-mode . turn-on-cdlatex)
   )
 
-;;; -> Programming -> Racket
+;;; -> Programming -> Lisp
+
+(use-package lisp-mode
+  :ensure nil  ; built-in package
+  :hook ((emacs-lisp-mode . setup-check-parens)
+         (lisp-mode . setup-check-parens)
+         (scheme-mode . setup-check-parens)
+         (clojure-mode . setup-check-parens)
+	 (racket-mode . setup-check-parens))
+  :config
+  (defun setup-check-parens ()
+    (add-hook 'before-save-hook #'check-parens nil t)))
+
+;;; -> Programming -> Lisp -> Racket
 
 (use-package racket-mode
   :defer t)
