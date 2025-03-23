@@ -33,6 +33,7 @@
 ;; (setq package-check-signature nil)
 
 (require 'use-package)
+;; (setq use-package-vc-prefer-newest nil)
 
 (use-package exec-path-from-shell
   :functions exec-path-from-shell-initialize
@@ -2167,6 +2168,15 @@ before exit in case another device made changes."
     (message "Elfeed: Database force-pushed to disk.")))
   )
 ;;; End of elfeed use-package block
+
+(use-package cuckoo-search
+  :vc (:url "https://github.com/rtrppl/cuckoo-search" :rev :newest)
+  :after (elfeed)
+  :bind
+  (:map elfeed-search-mode-map
+	      ("C" . cuckoo-search)
+	      ;; ("x" . cuckoo-search-saved-searches)
+	      ))
 
 (use-package elfeed-org
   :after (elfeed org)
