@@ -1,0 +1,3 @@
+[submodule "lisp/wiki-summary.el"]
+	path = lisp/wiki-summary.el
+	url = git@github.com:Tevqoon/wiki-summary.el.git
