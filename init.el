@@ -208,27 +208,42 @@
 (use-package symbol-overlay
   :hook prog-mode)
 
-;; Add this after org configuration and before elfeed configuration
+;;; Try to figure out shrface
 ;; (use-package shrface
+;;   :ensure t
 ;;   :defer t
-;;   :after org
-;;   :custom
-;;   (shrface-href-versatile t)
-;;   (shrface-paragraph-indentation 2)
-;;   (shrface-toggle-bullets t)
-;;   :hook
-;;   ((elfeed-show-mode . shrface-mode)
-;;    (eww-mode . shrface-mode))
-;;   :config
-;;   ;; Integrate with outline-minor-mode
-;;   (push 'shrface-outline-cycle-buffer local-minor-modes)
-;;   (push 'shrface-outline-cycle local-minor-modes)
-;;   (push 'shrface-toggle-bullets local-minor-modes)
+;;   :init
+;;   ;; Add shrface directory to load path - this happens at startup
+;;   (add-to-list 'load-path (expand-file-name "lisp/shrface" user-emacs-directory))
   
-;;   ;; Enable imenu support
-;;   (add-to-list 'imenu-generic-expression
-;;                (list "Headings" "^\\(?:[[:space:]]*[#]\\)+[[:space:]]+\\(.*\\)" 1)))
-
+;;   :custom
+;;   ;; Basic settings
+;;   (shr-cookie-policy nil)
+;;   (shrface-bullets-bullet-list '("▼" "▽" "▿" "▾"))
+;;   (shrface-href-versatile t)
+;;   (shrface-toggle-bullets nil)
+  
+;;   :hook
+;;   ;; Hook for outline view changes
+;;   (outline-view-change . shrface-outline-visibility-changed)
+  
+;;   :config
+;;   ;; Language detection for code blocks
+;;   (require 'shr-tag-pre-highlight)
+;;   (setq shr-tag-pre-highlight-lang-modes
+;;         '(("ocaml" . tuareg) ("elisp" . emacs-lisp) ("ditaa" . artist)
+;;           ("asymptote" . asy) ("dot" . fundamental) ("sqlite" . sql)
+;;           ("calc" . fundamental) ("C" . c) ("cpp" . c++) ("C++" . c++)
+;;           ("screen" . shell-script) ("shell" . sh) ("bash" . sh)
+;;           ("rust" . rustic) ("awk" . bash) ("json" . js)
+;;           ("emacslisp" . emacs-lisp) ("el" . emacs-lisp)))
+  
+;;   ;; Load integrations
+;;   (require 'shrface-core)
+;;   (require 'shrface-wiki-summary)
+;;   (require 'shrface-wallabag)
+;;   (require 'shrface-eww)
+;;   (require 'shrface-elfeed))
 
 ;;; -> OS specific configuration
 
