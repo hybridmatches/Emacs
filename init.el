@@ -258,7 +258,7 @@
   :vc (:url "https://github.com/positron-solutions/sinister")
   :config
   (sinister-stillness-mode 1)
-  (sinister-misc-settings))
+  )
 
 ;;; -> OS specific configuration
 
