@@ -96,6 +96,7 @@
 	transpose-words
 	undefined
 	upcase-region
+	wallabag-browse-url
 	wdired--self-insert
 	wdired-finish-edit
 	wdired-next-line
@@ -125,5 +126,6 @@
 	tab-bar-new-tab
 	tab-undo
 	text-scale-adjust
+	wallabag-browse-url
 	wgrep-finish-edit
 	))

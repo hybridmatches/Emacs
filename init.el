@@ -253,6 +253,13 @@
 ;;   (require 'shrface-eww)
 ;;   (require 'shrface-elfeed))
 
+;; Keeps windows still when opening minibuffers
+(use-package sinister
+  :vc (:url "https://github.com/positron-solutions/sinister")
+  :config
+  (sinister-stillness-mode 1)
+  (sinister-misc-settings))
+
 ;;; -> OS specific configuration
 
 (pcase system-type
@@ -1277,7 +1284,6 @@ With prefix ARG, prompt for browser choice."
       (do-applescript "tell application \"Orion\" to return URL of document 1"))
     )
 
-  ;;; TODO: Merge logging functions
   (defun js/log-page (&optional browser)
     "Captures the currently open browser page in today's org-roam daily journal file."
     (interactive)
@@ -2742,7 +2748,8 @@ If a key is provided, use it instead of the default capture template."
 
 ;;; -> Programming -> Haskell
 
-(use-package haskell-mode)
+(use-package haskell-mode
+  :defer t)
 
 ;;; -> Programming -> OCaml
 ;;; Adapted from
@@ -2817,19 +2824,6 @@ Calling with double prefix ARG (C-u C-u) runs Emacs with -Q."
     (when (equal arg '(4))  ; single C-u
       (setq args (cons "--debug-init" args)))
     (apply #'start-process "emacs" nil emacs-path args)))
-
-(defun def-rep-command (alist)
-  "Return a lambda which calleth the first function of ALIST.
-It sets the transient map to all functions of ALIST."
-  (lexical-let ((keymap (make-sparse-keymap))
-                (func (cdar alist)))
-    (mapc (lambda (x)
-            (define-key keymap (car x) (cdr x)))
-          alist)
-    (lambda (arg)
-      (interactive "p")
-      (funcall func arg)
-      (set-transient-map keymap t))))
 
 (defun quit-window--and-kill ()
   "Quit and kill the buffer, also closing its window."
