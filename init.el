@@ -1599,7 +1599,7 @@ you can catch it with `condition-case'."
 
   :hook
   (org-agenda-mode . js/org-agenda-fold)
-  (org-agenda-mode . my/org-agenda-setup-refresh-hooks)
+  ;; (org-agenda-mode . my/org-agenda-setup-refresh-hooks)
   :bind (("C-c a" . open-org-agenda)
 	 :map org-agenda-mode-map
 	 ("o" . ace-link-org-agenda)
@@ -1716,34 +1716,80 @@ you can catch it with `condition-case'."
     (setq-local outline-minor-mode-prefix (kbd "C-'"))
     (outline-minor-mode 1))
   
-    ;; (local-set-key outline-minor-mode-prefix outline-mode-prefix-map)
-    ;; (org-defkey org-agenda-mode-map [(tab)] #'outline-toggle-children)
-    ;; (map!
-    ;;   :after evil-org-agenda
-    ;;   :map evil-org-agenda-mode-map
-    ;;   :m "<tab>" #'outline-toggle-children
-    ;;   :m "<return>" #'org-agenda-goto
-    ;;   :m "S-<return>" #'org-agenda-switch-to
-  ;;   :m "C-<return>" #'org-agenda-recenter))
+  (defvar my/org-agenda-refresh-timer nil
+    "Timer for periodically refreshing the org-agenda buffer.")
 
-  ;;; Agenda refreshing
-  (defun my/org-agenda-refresh-on-focus ()
-    "Refresh the org-agenda buffer when it gains focus."
+  (defvar my/org-agenda-refresh-interval 60
+    "Interval in seconds for refreshing org-agenda (default: 60 seconds).")
+
+  (defvar-local my/org-agenda-buffer-name nil
+    "Store the buffer name to check if we've switched away.")
+
+  (defun my/org-agenda-start-refresh-timer ()
+    "Start a timer to periodically refresh the org-agenda buffer."
     (when (eq major-mode 'org-agenda-mode)
-      (org-agenda-redo)
-      (message "Refreshed agenda.")))
+      ;; Cancel any existing timer first
+      (my/org-agenda-stop-refresh-timer)
+      
+      ;; Store current buffer name for later comparison
+      (setq-local my/org-agenda-buffer-name (buffer-name))
+      
+      ;; Start a new timer
+      (setq my/org-agenda-refresh-timer
+            (run-with-timer my/org-agenda-refresh-interval my/org-agenda-refresh-interval
+                            #'my/org-agenda-check-and-refresh (current-buffer)))))
+
+  (defun my/org-agenda-check-and-refresh (agenda-buffer)
+    "Check if AGENDA-BUFFER is still visible and refresh if so."
+    (if (and (buffer-live-p agenda-buffer)
+             (get-buffer-window agenda-buffer))
+	(with-current-buffer agenda-buffer
+          (when (eq major-mode 'org-agenda-mode)
+            (org-agenda-redo t) ; The t means silently
+            (message "Auto-refreshed agenda.")))
+      ;; Stop the timer if buffer is no longer valid or visible
+      (my/org-agenda-stop-refresh-timer)))
+
+  (defun my/org-agenda-stop-refresh-timer ()
+    "Stop the agenda refresh timer."
+    (when my/org-agenda-refresh-timer
+      (cancel-timer my/org-agenda-refresh-timer)
+      (setq my/org-agenda-refresh-timer nil)))
 
   (defun my/org-agenda-setup-refresh-hooks ()
-    "Set up buffer-local hooks for refreshing org-agenda on activation."
+    "Set up hooks for agenda refresh logic."
+    ;; Start timer when entering agenda
+    (my/org-agenda-start-refresh-timer)
+    
+    ;; Refresh immediately on focus or tab switch
     (add-hook 'focus-in-hook #'my/org-agenda-refresh-on-focus nil t)
     (add-hook 'tab-bar-tab-post-select-functions 
               (lambda (&rest _) (my/org-agenda-refresh-on-focus))
+              nil t)
+    
+    ;; Clean up when leaving the buffer
+    (add-hook 'kill-buffer-hook #'my/org-agenda-stop-refresh-timer nil t)
+    (add-hook 'change-major-mode-hook #'my/org-agenda-stop-refresh-timer nil t)
+    
+    ;; Add window configuration change hook to detect buffer switching
+    (add-hook 'window-configuration-change-hook
+              (lambda ()
+		(unless (and (eq major-mode 'org-agenda-mode)
+                             (equal (buffer-name) my/org-agenda-buffer-name))
+                  (my/org-agenda-stop-refresh-timer)))
               nil t))
 
-;; Add the hook to org-agenda-mode
-  
+  (defun my/org-agenda-refresh-on-focus ()
+    "Refresh agenda when buffer gets focus, restarting the timer."
+    (when (and (eq major-mode 'org-agenda-mode)
+               (get-buffer-window (current-buffer)))
+      (org-agenda-redo)
+      (my/org-agenda-start-refresh-timer) ; Restart the timer
+      (message "Refreshed agenda on focus.")))
 
-  ) ;;
+  ;; Add the hook to org-agenda-mode
+  (add-hook 'org-agenda-mode-hook #'my/org-agenda-setup-refresh-hooks)
+  )
 ;;; End of org agenda package block
 
 ;;; -> Org mode -> Babel
