@@ -157,9 +157,9 @@
   )
 
 (use-package helpful
-  :bind (([remap describe-function] . helpful-callable)
-         ([remap describe-variable] . helpful-variable)
-         ([remap describe-key] . helpful-key)
+  :bind (("<f1> f" . helpful-callable)
+         ("<f1> v" . helpful-variable)
+         ("<f1> k" . helpful-key)
          :map help-map
          ("p" . helpful-at-point)))
 
@@ -861,13 +861,26 @@
 ;;; --> Misc helper packages
 
 (use-package function-groups
-  :load-path "~/.emacs.d/lisp"
-  ;; :commands (function-group-create
-  ;;            function-group-add-function
-  ;;            function-group-remove-function
-  ;;            function-group-list-functions)
+  :load-path "~/.emacs.d/lisp")
+
+;;; --> AI configuration
+
+(use-package gptel
+  :bind
+  ("C-c g" . gptel-send)
+  :custom
+  (gptel-default-mode 'org-mode)
   :config
-  ;; Any configuration you want to apply after loading
+  (setq gptel-model 'claude-3-5-haiku-latest)
+  (setq gptel-backend (gptel-make-anthropic "Claude"
+                        :stream t
+                        :models
+                        '(claude-3-7-sonnet-latest
+                          claude-3-5-haiku-latest)
+                        :host "api.anthropic.com"
+                        :key 'gptel-api-key-from-auth-source
+                        ))
+  
   )
 
 ;;; --> Org mode
@@ -1034,53 +1047,60 @@ This function is expected to be hooked in org-mode."
   ;; 	(message "No URL at point"))))
 
   (defun open-link-in-safari (&optional arg)
-    "Open links in Safari.
+  "Open links in Safari.
 If region is active, extract and open all URLs found in the region.
 Otherwise, open the URL at point.
 With prefix ARG, prompt for browser choice."
-    (interactive "P")
-    (let ((browse-func #'browse-url-safari))
-      ;; With prefix arg, prompt for browser
-      (when arg
-	(let* ((browsers '(("Safari" . browse-url-safari) 
-                           ("Firefox" . browse-url-firefox)))
-               (choice (completing-read "Choose browser: " (mapcar #'car browsers))))
-          (setq browse-func (cdr (assoc choice browsers)))))
-      
-      ;; If region is active, process URLs in region
-      (if (use-region-p)
-          (let ((text (buffer-substring-no-properties (region-beginning) (region-end)))
-		(count 0))
-            ;; First try to extract URLs from HTML href attributes
-            (with-temp-buffer
-              (insert text)
+  (interactive "P")
+  (let ((browse-func #'browse-url-safari))
+    ;; With prefix arg, prompt for browser
+    (when arg
+      (let* ((browsers '(("Safari" . browse-url-safari) 
+                         ("Firefox" . browse-url-firefox)))
+             (choice (completing-read "Choose browser: " (mapcar #'car browsers))))
+        (setq browse-func (cdr (assoc choice browsers)))))
+    
+    ;; If region is active, process URLs in region
+    (if (use-region-p)
+        (let ((text (buffer-substring-no-properties (region-beginning) (region-end)))
+              (count 0))
+          (with-temp-buffer
+            (insert text)
+            (goto-char (point-min))
+            
+            ;; 1. Try org-mode links [[url][description]]
+            (while (re-search-forward "\\[\\[\\([^]]+\\)\\]\\[" nil t)
+              (let ((url (match-string 1)))
+                (when (string-match-p "^\\(https?://\\|www\\.\\)" url)
+                  (funcall browse-func url)
+                  (setq count (1+ count)))))
+            
+            ;; 2. Try HTML href attributes
+            (goto-char (point-min))
+            (while (re-search-forward "href=[\"']\\([^\"']+\\)[\"']" nil t)
+              (let ((url (match-string 1)))
+                (when (string-match-p "^\\(https?://\\|www\\.\\)" url)
+                  (funcall browse-func url)
+                  (setq count (1+ count)))))
+            
+            ;; 3. Try plain text URLs if nothing else found
+            (when (= count 0)
               (goto-char (point-min))
-              (while (re-search-forward "href=[\"']\\([^\"']+\\)[\"']" nil t)
-		(let ((url (match-string 1)))
-                  (when (string-match-p "^\\(https?://\\|www\\.\\)" url)
-                    (funcall browse-func url)
-                    (setq count (1+ count)))))
-              
-              ;; If no HTML links found, try plain text URLs
-              (when (= count 0)
-		(goto-char (point-min))
-		(while (re-search-forward "\\(https?://\\|www\\.\\)[^\s\n\"]+" nil t)
-                  (let ((url (match-string 0)))
-                    ;; Ensure URL has http/https prefix
-                    (when (string-match "^www\\." url)
-                      (setq url (concat "https://" url)))
-                    ;; Remove trailing punctuation
-                    (when (string-match "\\([.,:;\"']+\\)$" url)
-                      (setq url (substring url 0 (match-beginning 1))))
-                    (funcall browse-func url)
-                    (setq count (1+ count))))))
-            (message "Opened %d URLs in browser" count))
-	
-	;; Otherwise just use the existing function for single URL
-	(let ((url (thing-at-point 'url)))
-          (if url
-              (funcall browse-func url)
-            (message "No URL at point"))))))
+              (while (re-search-forward "\\(https?://\\|www\\.\\)[^\s\n\"]+" nil t)
+                (let ((url (match-string 0)))
+                  (when (string-match "^www\\." url)
+                    (setq url (concat "https://" url)))
+                  (when (string-match "\\([.,:;\"']+\\)$" url)
+                    (setq url (substring url 0 (match-beginning 1))))
+                  (funcall browse-func url)
+                  (setq count (1+ count))))))
+          (message "Opened %d URLs in browser" count))
+      
+      ;; Otherwise just use the existing function for single URL
+      (let ((url (thing-at-point 'url)))
+        (if url
+            (funcall browse-func url)
+          (message "No URL at point"))))))
 
   ) ;;
 ;;; End of org-mode package block
@@ -1715,80 +1735,81 @@ you can catch it with `condition-case'."
     (setq-local outline-heading-end-regexp "\n")
     (setq-local outline-minor-mode-prefix (kbd "C-'"))
     (outline-minor-mode 1))
-  
-  (defvar my/org-agenda-refresh-timer nil
-    "Timer for periodically refreshing the org-agenda buffer.")
 
-  (defvar my/org-agenda-refresh-interval 60
-    "Interval in seconds for refreshing org-agenda (default: 60 seconds).")
+  ;;; -> Agenda -> Refresh timers
+  ;; (defvar my/org-agenda-refresh-timer nil
+  ;;   "Timer for periodically refreshing the org-agenda buffer.")
 
-  (defvar-local my/org-agenda-buffer-name nil
-    "Store the buffer name to check if we've switched away.")
+  ;; (defvar my/org-agenda-refresh-interval 60
+  ;;   "Interval in seconds for refreshing org-agenda (default: 60 seconds).")
 
-  (defun my/org-agenda-start-refresh-timer ()
-    "Start a timer to periodically refresh the org-agenda buffer."
-    (when (eq major-mode 'org-agenda-mode)
-      ;; Cancel any existing timer first
-      (my/org-agenda-stop-refresh-timer)
+  ;; (defvar-local my/org-agenda-buffer-name nil
+  ;;   "Store the buffer name to check if we've switched away.")
+
+  ;; (defun my/org-agenda-start-refresh-timer ()
+  ;;   "Start a timer to periodically refresh the org-agenda buffer."
+  ;;   (when (eq major-mode 'org-agenda-mode)
+  ;;     ;; Cancel any existing timer first
+  ;;     (my/org-agenda-stop-refresh-timer)
       
-      ;; Store current buffer name for later comparison
-      (setq-local my/org-agenda-buffer-name (buffer-name))
+  ;;     ;; Store current buffer name for later comparison
+  ;;     (setq-local my/org-agenda-buffer-name (buffer-name))
       
-      ;; Start a new timer
-      (setq my/org-agenda-refresh-timer
-            (run-with-timer my/org-agenda-refresh-interval my/org-agenda-refresh-interval
-                            #'my/org-agenda-check-and-refresh (current-buffer)))))
+  ;;     ;; Start a new timer
+  ;;     (setq my/org-agenda-refresh-timer
+  ;;           (run-with-timer my/org-agenda-refresh-interval my/org-agenda-refresh-interval
+  ;;                           #'my/org-agenda-check-and-refresh (current-buffer)))))
 
-  (defun my/org-agenda-check-and-refresh (agenda-buffer)
-    "Check if AGENDA-BUFFER is still visible and refresh if so."
-    (if (and (buffer-live-p agenda-buffer)
-             (get-buffer-window agenda-buffer))
-	(with-current-buffer agenda-buffer
-          (when (eq major-mode 'org-agenda-mode)
-            (org-agenda-redo t) ; The t means silently
-            (message "Auto-refreshed agenda.")))
-      ;; Stop the timer if buffer is no longer valid or visible
-      (my/org-agenda-stop-refresh-timer)))
+  ;; (defun my/org-agenda-check-and-refresh (agenda-buffer)
+  ;;   "Check if AGENDA-BUFFER is still visible and refresh if so."
+  ;;   (if (and (buffer-live-p agenda-buffer)
+  ;;            (get-buffer-window agenda-buffer))
+  ;; 	(with-current-buffer agenda-buffer
+  ;;         (when (eq major-mode 'org-agenda-mode)
+  ;;           (org-agenda-redo t) ; The t means silently
+  ;;           (message "Auto-refreshed agenda.")))
+  ;;     ;; Stop the timer if buffer is no longer valid or visible
+  ;;     (my/org-agenda-stop-refresh-timer)))
 
-  (defun my/org-agenda-stop-refresh-timer ()
-    "Stop the agenda refresh timer."
-    (when my/org-agenda-refresh-timer
-      (cancel-timer my/org-agenda-refresh-timer)
-      (setq my/org-agenda-refresh-timer nil)))
+  ;; (defun my/org-agenda-stop-refresh-timer ()
+  ;;   "Stop the agenda refresh timer."
+  ;;   (when my/org-agenda-refresh-timer
+  ;;     (cancel-timer my/org-agenda-refresh-timer)
+  ;;     (setq my/org-agenda-refresh-timer nil)))
 
-  (defun my/org-agenda-setup-refresh-hooks ()
-    "Set up hooks for agenda refresh logic."
-    ;; Start timer when entering agenda
-    (my/org-agenda-start-refresh-timer)
+  ;; (defun my/org-agenda-setup-refresh-hooks ()
+  ;;   "Set up hooks for agenda refresh logic."
+  ;;   ;; Start timer when entering agenda
+  ;;   (my/org-agenda-start-refresh-timer)
     
-    ;; Refresh immediately on focus or tab switch
-    (add-hook 'focus-in-hook #'my/org-agenda-refresh-on-focus nil t)
-    (add-hook 'tab-bar-tab-post-select-functions 
-              (lambda (&rest _) (my/org-agenda-refresh-on-focus))
-              nil t)
+  ;;   ;; Refresh immediately on focus or tab switch
+  ;;   (add-hook 'focus-in-hook #'my/org-agenda-refresh-on-focus nil t)
+  ;;   (add-hook 'tab-bar-tab-post-select-functions 
+  ;;             (lambda (&rest _) (my/org-agenda-refresh-on-focus))
+  ;;             nil t)
     
-    ;; Clean up when leaving the buffer
-    (add-hook 'kill-buffer-hook #'my/org-agenda-stop-refresh-timer nil t)
-    (add-hook 'change-major-mode-hook #'my/org-agenda-stop-refresh-timer nil t)
+  ;;   ;; Clean up when leaving the buffer
+  ;;   (add-hook 'kill-buffer-hook #'my/org-agenda-stop-refresh-timer nil t)
+  ;;   (add-hook 'change-major-mode-hook #'my/org-agenda-stop-refresh-timer nil t)
     
-    ;; Add window configuration change hook to detect buffer switching
-    (add-hook 'window-configuration-change-hook
-              (lambda ()
-		(unless (and (eq major-mode 'org-agenda-mode)
-                             (equal (buffer-name) my/org-agenda-buffer-name))
-                  (my/org-agenda-stop-refresh-timer)))
-              nil t))
+  ;;   ;; Add window configuration change hook to detect buffer switching
+  ;;   (add-hook 'window-configuration-change-hook
+  ;;             (lambda ()
+  ;; 		(unless (and (eq major-mode 'org-agenda-mode)
+  ;;                            (equal (buffer-name) my/org-agenda-buffer-name))
+  ;;                 (my/org-agenda-stop-refresh-timer)))
+  ;;             nil t))
 
-  (defun my/org-agenda-refresh-on-focus ()
-    "Refresh agenda when buffer gets focus, restarting the timer."
-    (when (and (eq major-mode 'org-agenda-mode)
-               (get-buffer-window (current-buffer)))
-      (org-agenda-redo)
-      (my/org-agenda-start-refresh-timer) ; Restart the timer
-      (message "Refreshed agenda on focus.")))
+  ;; (defun my/org-agenda-refresh-on-focus ()
+  ;;   "Refresh agenda when buffer gets focus, restarting the timer."
+  ;;   (when (and (eq major-mode 'org-agenda-mode)
+  ;;              (get-buffer-window (current-buffer)))
+  ;;     (org-agenda-redo)
+  ;;     (my/org-agenda-start-refresh-timer) ; Restart the timer
+  ;;     (message "Refreshed agenda on focus.")))
 
   ;; Add the hook to org-agenda-mode
-  (add-hook 'org-agenda-mode-hook #'my/org-agenda-setup-refresh-hooks)
+  ;; (remove-hook 'org-agenda-mode-hook #'my/org-agenda-setup-refresh-hooks)
   )
 ;;; End of org agenda package block
 
