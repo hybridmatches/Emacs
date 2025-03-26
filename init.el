@@ -1500,6 +1500,24 @@ you can catch it with `condition-case'."
   (org-roam-ui-update-on-save t)
   (org-roam-ui-open-on-start nil))
 
+;;; -> Org mode -> Anki
+
+(use-package anki-editor
+  :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest)
+  :config
+  (defun org/has-anki-flashcards-p ()
+  "Return non-nil if current buffer has ANKI-related properties."
+  (save-excursion
+    (goto-char (point-min))
+    (re-search-forward ":ANKI_\\(NOTE_TYPE\\|DECK\\|NOTE_ID\\|TAGS\\):" nil t)))
+  (tags/make-db-searcher "flashcards")
+  :custom
+  (anki-editor-latex-style mathjax)
+  (anki-editor-ignored-org-tags '("project" "flashcards" "ex-flashcards"))
+  ()
+
+  )
+
 ;;; TODO -> Org mode -> Citation
 
 ;;; https://github.com/org-roam/org-roam-bibtex
@@ -1518,7 +1536,8 @@ you can catch it with `condition-case'."
  tags/update-tags-enabled
   :preface
   (setq prune/ignored-files '("tasks.org" "inbox.org")) ; These should always have project tags.
-  (setq tag-checkers '(("project" . org/project-p)))
+  (setq tag-checkers '(("project" . org/project-p)
+                     ("flashcards" . org/has-anki-flashcards-p)))
   (setq tags/updating-tags (mapcar #'car tag-checkers))
 
   :commands (tags/make-db-searcher)
