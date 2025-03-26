@@ -917,7 +917,7 @@ between Emacs sessions.")
 (use-package function-groups
   :load-path "~/.emacs.d/lisp")
 
-;;; --> AI configuration
+;;; --> AI configuration -> GPTel
 
 (use-package gptel
   :bind
@@ -927,9 +927,12 @@ between Emacs sessions.")
   ("C-c g s" . gptel-send)
   ("C-c g t" . gptel-set-topic)
   ("C-c g /" . gptel-menu)
-  :hook (org-mode . my/gptel-enable-tool-results-in-org-mode)
+  :hook
+  (org-mode . my/gptel-enable-tool-results-in-org-mode)
+  (org-mode . org/enable-gptel-for-chatlog-buffer)
   :custom
   (gptel-default-mode 'org-mode)
+  
   :config
   (setq gptel-model 'claude-3-5-haiku-latest)
   (setq gptel-backend (gptel-make-anthropic "Claude"
@@ -974,6 +977,13 @@ TOOL-DEFINITION should be a complete gptel-make-tool expression."
 	(insert (format "%S\n" tool-definition))
 	(save-buffer)
 	(message "Tool added to %s" tools-file))))
+
+  ;; Vulpea interface
+  (defun org/enable-gptel-for-chatlog-buffer ()
+    "Enable gptel-mode if the current buffer has the 'chatlog' tag."
+    (when (and (buffer-file-name)
+               (member "chatlog" (vulpea-buffer-tags-get)))
+      (gptel-mode 1)))
   
   )
 
@@ -1365,6 +1375,10 @@ With prefix ARG, prompt for browser choice."
       ("p" "process capture" entry "* PROCESS %(eval org-roam-capture-content)"
        :target (file+head+olp "%<%Y-%m-%d>.org"
 			      "#+title: %<%Y-%m-%d>\n#+startup: content" ("Processing"))
+       :immediate-finish t)
+      ("c" "chatlog capture" entry "* %(eval org-roam-capture-content)"
+       :target (file+head+olp "%<%Y-%m-%d>.org"
+                              "#+title: %<%Y-%m-%d>\n#+startup: content" ("Chats"))
        :immediate-finish t))
     
     "A list of templates to use for automatic daily capture."
@@ -1601,7 +1615,8 @@ you can catch it with `condition-case'."
   :preface
   (setq prune/ignored-files '("tasks.org" "inbox.org")) ; These should always have project tags.
   (setq tag-checkers '(("project" . org/project-p)
-                       ("flashcards" . org/has-anki-flashcards-p)))
+                       ("flashcards" . org/has-anki-flashcards-p)
+		       ("chatlog" . org/has-gptel-chatlog-p)))
   (setq tags/updating-tags (mapcar #'car tag-checkers))
 
   :commands (tags/make-db-searcher)
@@ -1621,6 +1636,12 @@ you can catch it with `condition-case'."
     (save-excursion
       (goto-char (point-min))
       (re-search-forward ":ANKI_\\(NOTE_TYPE\\|DECK\\|NOTE_ID\\|TAGS\\):" nil t)))
+
+  (defun org/has-gptel-chatlog-p ()
+    "Return non-nil if current buffer has GPTEL-related properties."
+    (save-excursion
+      (goto-char (point-min))
+      (re-search-forward ":GPTEL_\\(TOPIC\\|MESSAGES\\|MODEL\\|CONTEXT\\):" nil t)))
 
   ;; Exclude the relevant tags from inheritance
   (dolist (tag (cons "summary" tags/updating-tags))
