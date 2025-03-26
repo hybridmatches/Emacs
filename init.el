@@ -1503,6 +1503,7 @@ you can catch it with `condition-case'."
 ;;; -> Org mode -> Anki
 
 (use-package anki-editor
+  :after org
   :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest)
   :config
   (defun org/has-anki-flashcards-p ()
@@ -1526,18 +1527,19 @@ you can catch it with `condition-case'."
 					;: The tag handling code adapted from:
 ;; https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
 (use-package vulpea
- :functions
- tags/org-update-all-tags
- vulpea-buffer-p
- vulpea-buffer-tags-get
- vulpea-buffer-tags-set
- tags/maybe-update-tags
- :defines
- tags/update-tags-enabled
+  :after org anki-editor
+  :functions
+  tags/org-update-all-tags
+  vulpea-buffer-p
+  vulpea-buffer-tags-get
+  vulpea-buffer-tags-set
+  tags/maybe-update-tags
+  :defines
+  tags/update-tags-enabled
   :preface
   (setq prune/ignored-files '("tasks.org" "inbox.org")) ; These should always have project tags.
   (setq tag-checkers '(("project" . org/project-p)
-                     ("flashcards" . org/has-anki-flashcards-p)))
+                       ("flashcards" . org/has-anki-flashcards-p)))
   (setq tags/updating-tags (mapcar #'car tag-checkers))
 
   :commands (tags/make-db-searcher)
@@ -1556,6 +1558,14 @@ you can catch it with `condition-case'."
   (dolist (tag (cons "summary" tags/updating-tags))
     (add-to-list 'org-tags-exclude-from-inheritance tag))
   
+  (defvar tags/tag-added-hook nil
+    "Hook run when a tag is added to a file.
+Each function is called with two arguments: the tag and the buffer.")
+
+  (defvar tags/tag-removed-hook nil
+    "Hook run when a tag is removed from a file.
+Each function is called with two arguments: the tag and the buffer.")
+
   (defun vulpea-buffer-p ()
     "Return non-nil if the currently visited buffer is a note."
     (and buffer-file-name
@@ -1564,25 +1574,39 @@ you can catch it with `condition-case'."
           (file-name-directory buffer-file-name))))
   
   (defun tags/org-update-tag (tcpair)
-    "Update \='(tag . checker) tag in the current buffer."
+    "Update \\='(tag . checker) tag in the current buffer."
     (when (and (not (member (buffer-name) prune/ignored-files))
                (not (active-minibuffer-window))
                (vulpea-buffer-p))
       (save-excursion
-        (goto-char (point-min))
-        (let* ((tags (vulpea-buffer-tags-get))
-               (original-tags tags))
+	(goto-char (point-min))
+	(let* ((tag-name (car tcpair))
+               (tags (vulpea-buffer-tags-get))
+               (original-tags tags)
+               (had-tag (member tag-name tags)))
+          
+          ;; Run checker and modify tags
           (if (funcall (cdr tcpair))
-              (setq tags (cons (car tcpair) tags))
-            (setq tags (remove (car tcpair) tags)))
-
-          ;; cleanup duplicates
+              (setq tags (cons tag-name tags))
+            (setq tags (remove tag-name tags)))
+          
+          ;; Cleanup duplicates
           (setq tags (seq-uniq tags))
-
-          ;; update tags if changed
+          
+          ;; Update tags if changed
           (when (or (seq-difference tags original-tags)
                     (seq-difference original-tags tags))
-            (apply #'vulpea-buffer-tags-set tags))))))
+            (apply #'vulpea-buffer-tags-set tags)
+            
+            ;; Run appropriate hooks
+            (let ((now-has-tag (member tag-name tags)))
+              (cond
+               ;; Tag was added
+               ((and (not had-tag) now-has-tag)
+		(run-hook-with-args 'tags/tag-added-hook tag-name (current-buffer)))
+               ;; Tag was removed
+               ((and had-tag (not now-has-tag))
+		(run-hook-with-args 'tags/tag-removed-hook tag-name (current-buffer))))))))))
 
   (defun tags/org-update-all-tags ()
     (mapc #'tags/org-update-tag tag-checkers))
