@@ -919,16 +919,15 @@ between Emacs sessions.")
 
 ;;; --> AI configuration
 
-;;; gptel-config.el --- AI configuration for gptel -*- lexical-binding: t -*-
-
-;;; Commentary:
-;; Main configuration for gptel package with Claude models
-
-;;; Code:
-
 (use-package gptel
   :bind
-  ("C-c g" . gptel-send)
+  ("C-c g a" . gptel-abort)
+  ("C-c g c" . gptel-context-add)
+  ("C-c g r" . gptel-rewrite)
+  ("C-c g s" . gptel-send)
+  ("C-c g t" . gptel-set-topic)
+  ("C-c g /" . gptel-menu)
+  :hook (org-mode . my/gptel-enable-tool-results-in-org-mode)
   :custom
   (gptel-default-mode 'org-mode)
   :config
@@ -944,6 +943,14 @@ between Emacs sessions.")
   ;; Load custom tools
   ;; (setq gptel--known-tools nil)
   (load (expand-file-name "gptel-tools.el" user-emacs-directory))
+
+  ;; Tool results default to nil
+  (setq-default gptel-include-tool-results nil)
+
+  ;; Org mode shows tool results (since they're minified)
+  (defun my/gptel-enable-tool-results-in-org-mode ()
+    "Enable tool results locally in org-mode."
+    (setq-local gptel-include-tool-results t))
   
   (defun my/gptel-toggle-tool-results-local ()
     "Toggle gptel tool results inclusion buffer-locally between 'auto and t.
@@ -955,6 +962,18 @@ If not set buffer-locally, starts with 'auto."
            (if (eq current-local-value t) 'auto t))
       (message "Gptel tool results inclusion set to %s locally" 
                (buffer-local-value 'gptel-include-tool-results (current-buffer)))))
+
+  (defun my/gptel-add-tool-to-file (tool-definition)
+    "Add a new tool definition to the gptel-tools.el file.
+TOOL-DEFINITION should be a complete gptel-make-tool expression."
+    (interactive "xEnter tool definition: ")
+    (let ((tools-file (expand-file-name "gptel-tools.el" user-emacs-directory)))
+      (with-current-buffer (find-file-noselect tools-file)
+	(goto-char (point-max))
+	(insert "\n\n;; Dynamically added tool\n")
+	(insert (format "%S\n" tool-definition))
+	(save-buffer)
+	(message "Tool added to %s" tools-file))))
   
   )
 
