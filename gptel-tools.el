@@ -20,7 +20,7 @@
                 (message "Error looking up function %s: %s" function-name (error-message-string err))
                 (format "Could not find documentation for function '%s'. Error: %s" 
                         function-name (error-message-string err)))))
- ;; :include t
+ :include t
  :description "Retrieves comprehensive documentation for any Emacs Lisp function.
 
 Purpose:
@@ -55,7 +55,7 @@ when necessary and avoid calling it multiple times for the same function."
                 (message "Error looking up variable %s: %s" variable-name (error-message-string err))
                 (format "Could not find documentation for variable '%s'. Error: %s" 
                         variable-name (error-message-string err)))))
- ;; :include t 
+ :include t 
  :description "Retrieves comprehensive documentation for any Emacs Lisp variable.
 
 Purpose:
@@ -168,7 +168,7 @@ Side effects:
 (gptel-make-tool
  :name "find_symbols_by_name"
  :function 'gptel-tool-apropos
- ;; :include t
+ :include t
  :description "Searches for Emacs Lisp symbols (functions and variables) by keyword.
 
 Purpose:
@@ -227,6 +227,7 @@ Example scenarios:
 2. When switching between different programming tasks or languages
 3. Before beginning a completely new line of inquiry or technical discussion
 4. When the AI seems to be mixing up information from previous discussions"
+ :include t
  :category "session-management")
 
 (gptel-make-tool
@@ -269,4 +270,158 @@ This setting affects only the current buffer and conversation."
  :include t
  :category "session-management")
 
-;;; gptel-tools.el ends here
+(gptel-make-tool
+ :name "create_gptel_tool"
+ :description "Creates persistent new gptel tools from provided specifications.
+
+Purpose:
+- Enables creation of custom tools through conversation without manual coding
+- Adds tool definitions directly to the configuration file for future sessions
+- Accepts Elisp functions as strings and converts them to proper tool definitions
+- Extends your toolset based on needs identified during conversation
+
+When to use:
+- When a user requests a new capability that would benefit from a dedicated tool
+- When converting discussed functionality into a permanent tool
+- When implementing user-designed tools with custom parameters
+- When you need to suggest creating a specialized tool for recurring tasks
+
+Note: Tools created through this function will be added to the configuration file but require an Emacs restart or manual evaluation to become available. The function parameter must contain valid Elisp code. This tool allows you to suggest and implement permanent extensions to your capabilities."
+ :function (lambda (name description function &optional args category async)
+             (let* ((parsed-function (car (read-from-string function)))
+                    (tool-def 
+                     `(gptel-make-tool
+                       :name ,name
+                       :description ,description
+                       :function ,parsed-function
+		       :include t
+                       ,@(when args `(:args ,args))
+                       ,@(when category `(:category ,category))
+                       ,@(when async `(:async ,async)))))
+               (my/gptel-add-tool-to-file tool-def)
+               (format "Tool '%s' has been created and added to gptel-tools.el" name)))
+ :args [(:name "name"
+               :type "string" :description "Name of the tool in snake_case")
+        (:name "description"
+               :type "string" :description "Detailed description of what the tool does")
+        (:name "function"
+               :type "string" :description "Actual Elisp function or lambda expression to be used for the tool")
+        (:name "args"
+               :type "array" :description "Optional list of argument specifications" :optional t)
+        (:name "category"
+               :type "string" :description "Optional category for the tool" :optional t)
+        (:name
+         "async" :type "boolean" :description "Whether the tool is asynchronous" :optional t)]
+ :category "introspection"
+ :include t
+ :confirm t)
+
+(defun list-all-gptel-tools ()
+  "List all available gptel tools with their names and descriptions."
+  (let (tool-list)
+    (dolist (category gptel--known-tools)
+      (let ((category-name (car category)))
+        (dolist (tool-entry (cdr category))
+          (let* ((tool-name (car tool-entry))
+                 (tool-struct (cdr tool-entry))
+                 ;; Using the structure accessor function
+                 (description (gptel-tool-description tool-struct)))
+            (push (cons tool-name description) tool-list)))))
+    (nreverse tool-list)))
+
+(defun list-gptel-tool-names ()
+  "Return a list of all available gptel tool names."
+  (let (tool-names)
+    (dolist (category gptel--known-tools)
+      (dolist (tool-entry (cdr category))
+        (push (car tool-entry) tool-names)))
+    (nreverse tool-names)))
+
+(defun get-gptel-tool-description (tool-name)
+  "Return the description for a specific tool by name.
+If the tool is not found, return nil."
+  (catch 'found
+    (dolist (category gptel--known-tools)
+      (dolist (tool-entry (cdr category))
+        (when (string= (car tool-entry) tool-name)
+          (throw 'found (gptel-tool-description (cdr tool-entry))))))
+    nil))
+
+;; Dynamically added tool
+(gptel-make-tool :name "list_gptel_tool_names" :description "Returns a list of all available gptel tool names.
+
+Purpose:
+- Provides a quick overview of all available tools
+- Helps users discover what tools are currently supported
+- Useful for introspection and tool exploration
+
+When to use:
+- When you want to see what tools are available
+- Before selecting a specific tool to use
+- When exploring the current tool capabilities" :function 'list-gptel-tool-names :include t :category "introspection")
+
+
+;; Dynamically added tool
+(gptel-make-tool :name "get_gptel_tool_description" :description "Retrieves the full description for a specific tool by name.
+
+Purpose:
+- Provides detailed information about a specific tool
+- Helps users understand the purpose and usage of individual tools
+- Supports in-depth exploration of tool capabilities
+
+When to use:
+- When you want to learn more about a specific tool
+- Before using a tool to understand its functionality
+- When seeking detailed information about tool usage and purpose
+
+Parameters:
+- tool_name: The exact name of the tool to get description for" :function 'get-gptel-tool-description :include t :args [(:name "tool_name" :type "string" :description "Name of the tool to get description for")] :category "introspection")
+
+;; Dynamically added tool
+(gptel-make-tool 
+ :name "eval_elisp" 
+ :description "Evaluates Emacs Lisp code and returns the result.
+Purpose:
+- Executes Emacs Lisp expressions directly in the current environment
+- Tests code snippets to verify functionality
+- Demonstrates how functions behave with actual output
+- Helps troubleshoot issues by running diagnostic code
+- Allows exploring Emacs state and configuration interactively
+When to use:
+- When testing proposed solutions before recommending them
+- When verifying how a function works in practice
+- When checking current values or states in Emacs
+- When demonstrating the effects of configuration changes
+- When creating custom examples tailored to user questions
+Note: This tool executes code in the user's Emacs instance. Use with appropriate caution, especially with code that modifies state or performs file operations. Always explain the purpose of code you're evaluating when presenting results to users. If there is a different tool that will more directly accomplish what you want to do, strongly consider using it instead." 
+ :function (lambda (expr)
+             "Evaluate Emacs Lisp expression EXPR and return the result.
+The expression is evaluated in the current buffer context."
+             (condition-case err 
+                 (let ((result (eval (read expr) t))) 
+                   (format "%S" result)) 
+               (error (format "Error: %S" err))))
+ :args '((:name "expr" :type "string" :description "Emacs Lisp expression to evaluate"))
+ :include t 
+ :confirm t 
+ :category "introspection")
+
+
+;; Dynamically added tool
+(gptel-make-tool :name "list_buffers" :description "Lists all current Emacs buffers with their details.
+
+Purpose:
+- Provides an overview of all active buffers in the current Emacs session
+- Shows buffer names, sizes, modes, and modification status
+- Helps identify buffers for further operations
+- Supports buffer management tasks
+
+When to use:
+- When helping users manage their buffers
+- When troubleshooting buffer-related issues
+- Before recommending buffer operations
+- When assisting with workspace organization
+
+The function returns a structured representation of buffer information,
+making it easy to reference specific buffers in subsequent advice." :function (defun gptel-tool-list-buffers nil "Return a formatted list of all buffers with their details." (let ((buffer-list (buffer-list)) (result-list 'nil)) (dolist (buffer buffer-list) (let* ((name (buffer-name buffer)) (file (or (buffer-file-name buffer) "")) (size (buffer-size buffer)) (mode (with-current-buffer buffer mode-name)) (modified (if (buffer-modified-p buffer) "*" " ")) (buffer-info (format "%-30s %8d bytes  %-20s %s %s" name size mode modified file))) (push buffer-info result-list))) (setq result-list (nreverse result-list)) (mapconcat #'identity (cons (format "%-30s %8s       %-20s %s %s" "Buffer" "Size" "Mode" "M" "File") (cons (make-string 80 45) result-list)) "
+"))) :include t)
