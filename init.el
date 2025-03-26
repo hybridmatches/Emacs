@@ -93,6 +93,50 @@
 
 (use-package emacs-everywhere)
 
+;;; -> Initialization -> Misc
+
+;;; -> Initialization -> Misc -> Persistent Variables Utility
+(use-package persistent-vars
+  :ensure nil
+  :commands (dump-vars-to-file dump-closing-variables)
+  :defines (closing-variables)
+  :custom
+  (closing-variables-filename "~/.emacs.d/variables.el")
+  :init
+  (defvar closing-variables nil
+    "Variables to dump to a file upon closing emacs.")
+  :config
+  (defun dump-vars-to-file (varlist filename)
+    "Simplistic dumping of variables in VARLIST to a file FILENAME"
+    (save-excursion
+      (let ((buf (find-file-noselect filename)))
+        (with-current-buffer buf
+          (erase-buffer)
+          (dump-varlist varlist buf)
+          (save-buffer)
+          (kill-buffer)))))
+
+  (defun dump-varlist (varlist buffer)
+    "Insert into buffer the setq statement to recreate the variables in VARLIST"
+    (mapc (lambda (var) 
+            (print (list 'setq var (list 'quote (symbol-value var))) 
+                   buffer))
+          varlist))  ;; Ensure the file exists
+  (unless (file-exists-p closing-variables-filename)
+    (with-temp-file closing-variables-filename
+      (insert ";; Persistent variables\n")))
+
+  ;; Load existing variables
+  (load closing-variables-filename t t t)
+
+  (defun dump-closing-variables ()
+    "Writes all of the variables in the list closing-variables to the file closing-variables-filename"
+    (interactive)
+    (dump-vars-to-file closing-variables closing-variables-filename))
+
+  (add-hook 'kill-emacs-hook #'dump-closing-variables))
+
+
 ;;; --> Look and feel
 
 (use-package doom-themes
@@ -893,6 +937,17 @@
   ;; (setq gptel--known-tools nil)
   (load (expand-file-name "gptel-tools.el" user-emacs-directory))
   
+  (defun my/gptel-toggle-tool-results-local ()
+    "Toggle gptel tool results inclusion buffer-locally between 'auto and t.
+If not set buffer-locally, starts with 'auto."
+    (interactive)
+    (let* ((current-local-value (and (local-variable-p 'gptel-include-tool-results)
+                                     (buffer-local-value 'gptel-include-tool-results (current-buffer)))))
+      (set (make-local-variable 'gptel-include-tool-results)
+           (if (eq current-local-value t) 'auto t))
+      (message "Gptel tool results inclusion set to %s locally" 
+               (buffer-local-value 'gptel-include-tool-results (current-buffer)))))
+  
   )
 
 ;;; gptel-config.el ends here
@@ -1500,34 +1555,14 @@ you can catch it with `condition-case'."
   (org-roam-ui-update-on-save t)
   (org-roam-ui-open-on-start nil))
 
-;;; -> Org mode -> Anki
-
-(use-package anki-editor
-  :after org
-  :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest)
-  :config
-  (defun org/has-anki-flashcards-p ()
-  "Return non-nil if current buffer has ANKI-related properties."
-  (save-excursion
-    (goto-char (point-min))
-    (re-search-forward ":ANKI_\\(NOTE_TYPE\\|DECK\\|NOTE_ID\\|TAGS\\):" nil t)))
-  (tags/make-db-searcher "flashcards")
-  :custom
-  (anki-editor-latex-style mathjax)
-  (anki-editor-ignored-org-tags '("project" "flashcards" "ex-flashcards"))
-  ()
-
-  )
-
 ;;; TODO -> Org mode -> Citation
 
 ;;; https://github.com/org-roam/org-roam-bibtex
 ;;; -> Org mode -> Tag management
 
-					;: The tag handling code adapted from:
+;; The tag handling code adapted from:
 ;; https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
 (use-package vulpea
-  :after org anki-editor
   :functions
   tags/org-update-all-tags
   vulpea-buffer-p
@@ -1553,6 +1588,12 @@ you can catch it with `condition-case'."
         (eq (org-element-property :todo-type h)
             'todo))
       nil 'first-match))
+
+  (defun org/has-anki-flashcards-p ()
+    "Return non-nil if current buffer has ANKI-related properties."
+    (save-excursion
+      (goto-char (point-min))
+      (re-search-forward ":ANKI_\\(NOTE_TYPE\\|DECK\\|NOTE_ID\\|TAGS\\):" nil t)))
 
   ;; Exclude the relevant tags from inheritance
   (dolist (tag (cons "summary" tags/updating-tags))
@@ -1649,6 +1690,251 @@ Each function is called with two arguments: the tag and the buffer.")
 
   ) ;;
 ;;; End of vulpea package block
+
+;;; -> Org mode -> Anki
+
+(use-package anki-editor
+  :after org
+  :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest)
+  :custom
+  (anki-editor-latex-style 'mathjax)
+  (anki-editor-ignored-org-tags '("project" "flashcards" "ex-flashcards"))
+
+  :config
+  (defvar anki-tag-list '()
+    "Keeps track of the most recently used flashcard tags.")
+
+  ;; Ensure it's saved on exit
+  (add-to-list 'closing-variables 'anki-tag-list)
+
+  (defun anki/my/after-snippet-tag-handler ()
+    "Select or create an Anki tag, prioritizing recent tags."
+    (let* ((tag (completing-read "Enter tag: " 
+				 (delete-dups (cons "" anki-tag-list))
+				 nil 
+				 nil 
+				 (car anki-tag-list))))
+      (when (not (string-empty-p tag))
+	(setq anki-tag-list (delete nil (cons tag (remove tag anki-tag-list)))))
+      tag))
+
+  (tags/make-db-searcher "flashcards")
+
+  ;; Anki Flashcard Queue System
+  (defvar anki-flashcard-queue-file
+    (expand-file-name "anki-flashcard-queue.el" 
+                      (expand-file-name "lisp" user-emacs-directory))
+    "File to save the flashcard queue between Emacs sessions.")
+
+  (defvar anki-flashcard-queue nil
+    "List of files with flashcard changes that need to be pushed to Anki.")
+
+  (defvar anki-flashcard-error-buffer "*Anki Flashcard Errors*"
+    "Buffer name for displaying Anki flashcard push errors.")
+
+  ;; Path conversion functions
+  (defun anki-flashcard-make-relative-path (file)
+    "Convert FILE to a path relative to `org-roam-directory`."
+    (file-relative-name (expand-file-name file) org-roam-directory))
+
+  (defun anki-flashcard-make-absolute-path (file)
+    "Convert relative FILE to absolute path from `org-roam-directory`."
+    (expand-file-name file org-roam-directory))
+
+  ;; Queue management functions
+  (defun anki-flashcard-queue-load ()
+    "Load the flashcard queue from file."
+    (when (file-exists-p anki-flashcard-queue-file)
+      (load-file anki-flashcard-queue-file)))
+
+  (defun anki-flashcard-queue-save ()
+    "Save the flashcard queue to file."
+    ;; Create directory if it doesn't exist
+    (let ((dir (file-name-directory anki-flashcard-queue-file)))
+      (unless (file-exists-p dir)
+	(make-directory dir t)))
+    
+    (with-temp-file anki-flashcard-queue-file
+      (insert ";; Anki flashcard queue - DO NOT EDIT MANUALLY\n")
+      (insert ";; This file is auto-generated by Emacs\n\n")
+      (insert "(setq anki-flashcard-queue\n")
+      (insert "  '(\n")
+      (dolist (file anki-flashcard-queue)
+	(insert (format "    %S\n" file)))
+      (insert "  ))\n")))
+
+  (defun anki-flashcard-queue-add (file)
+    "Add FILE to flashcard queue if not already present."
+    (anki-flashcard-queue-load) ;; Ensure we have the latest queue
+    (let ((rel-path (anki-flashcard-make-relative-path file)))
+      (unless (member rel-path anki-flashcard-queue)
+	(push rel-path anki-flashcard-queue)
+	(anki-flashcard-queue-save))))
+
+  (defun anki-flashcard-queue-remove (file)
+    "Remove FILE from flashcard queue."
+    (anki-flashcard-queue-load) ;; Ensure we have the latest queue
+    (let ((rel-path (anki-flashcard-make-relative-path file)))
+      (when (member rel-path anki-flashcard-queue)
+	(setq anki-flashcard-queue (delete rel-path anki-flashcard-queue))
+	(anki-flashcard-queue-save))))
+
+  ;; Error handling functions
+  (defun anki-flashcard-clear-error-buffer ()
+    "Clear the error buffer or create it if it doesn't exist."
+    (with-current-buffer (get-buffer-create anki-flashcard-error-buffer)
+      (erase-buffer)
+      (insert "Anki Flashcard Push Results:\n\n")))
+
+  (defun anki-flashcard-report-error (file error-msg)
+    "Report ERROR-MSG for FILE in the error buffer."
+    (with-current-buffer (get-buffer-create anki-flashcard-error-buffer)
+      (goto-char (point-max))
+      (insert (format "ERROR pushing %s:\n%s\n\n" file error-msg))))
+
+  ;; Save hook function for flashcard buffers
+  (defun anki-flashcard-save-hook ()
+    "Function to run on save for buffers with flashcards tag."
+    (when (buffer-file-name)
+      (anki-flashcard-queue-add (buffer-file-name))
+      (message "Added to Anki flashcard queue: %s" (buffer-file-name))))
+
+  ;; Hook functions for tag changes
+  (defun anki-flashcard-tag-added (tag buffer)
+    "Add save hook when TAG 'flashcards' is added to BUFFER."
+    (when (string= tag "flashcards")
+      (with-current-buffer buffer
+	;; Add to local hook
+	(add-hook 'after-save-hook #'anki-flashcard-save-hook nil t)
+	;; Add to queue if file already exists
+	(when (buffer-file-name)
+          (anki-flashcard-queue-add (buffer-file-name))))))
+
+  (defun anki-flashcard-tag-removed (tag buffer)
+    "Remove save hook when TAG 'flashcards' is removed from BUFFER."
+    (when (string= tag "flashcards")
+      (with-current-buffer buffer
+	;; Remove the local hook
+	(remove-hook 'after-save-hook #'anki-flashcard-save-hook t))))
+
+  ;; Pushing functions
+  (defun my/anki-flashcard-push-file (file)
+    "Push FILE to Anki and handle errors. Returns t on success, nil on failure."
+    (let ((abs-path (anki-flashcard-make-absolute-path file)))
+      (if (file-exists-p abs-path)
+          (condition-case err
+              (progn
+		;; Load the file
+		(with-current-buffer (find-file-noselect abs-path)
+                  (message "Pushing %s to Anki..." abs-path)
+                  (save-excursion
+                    (anki-editor-push-notes 'file))
+                  t))
+            (error
+             (anki-flashcard-report-error file (error-message-string err))
+             (message "Error pushing %s to Anki (see *Anki Flashcard Errors*)" abs-path)
+             nil))
+	(progn
+          (anki-flashcard-report-error file "File does not exist")
+          (message "Error pushing to Anki: File %s does not exist" abs-path)
+          nil))))
+
+  (defun my/anki-flashcard-push-current-buffer ()
+    "Push current buffer to Anki if it's a flashcard file."
+    (interactive)
+    (if (buffer-file-name)
+	(progn
+          (anki-flashcard-queue-load)
+          (anki-flashcard-clear-error-buffer)
+          (save-buffer) ;; Ensure buffer is saved
+          
+          (if (my/anki-flashcard-push-file (anki-flashcard-make-relative-path (buffer-file-name)))
+              (progn
+		(anki-flashcard-queue-remove (buffer-file-name))
+		(message "Successfully pushed %s to Anki" (buffer-file-name)))
+            (message "Failed to push %s to Anki" (buffer-file-name))))
+      (message "Buffer is not visiting a file")))
+
+  (defun my/anki-flashcard-push-all ()
+    "Push all files in the flashcard queue to Anki."
+    (interactive)
+    (anki-flashcard-queue-load)
+    (anki-flashcard-clear-error-buffer)
+    
+    (if anki-flashcard-queue
+	(let ((success-count 0)
+              (error-count 0)
+              (total (length anki-flashcard-queue))
+              (queue-copy (copy-sequence anki-flashcard-queue)))
+          
+          ;; Process each file and track results
+          (dolist (file queue-copy)
+            (if (my/anki-flashcard-push-file file)
+		(progn
+                  (setq success-count (1+ success-count))
+                  (setq anki-flashcard-queue (delete file anki-flashcard-queue)))
+              (setq error-count (1+ error-count))))
+          
+          ;; Save updated queue
+          (anki-flashcard-queue-save)
+          
+          ;; Provide feedback
+          (if (> error-count 0)
+              (progn
+		(message "Pushed %d/%d files to Anki with %d errors. See *Anki Flashcard Errors*"
+			 success-count total error-count)
+		(display-buffer anki-flashcard-error-buffer))
+            (message "Successfully pushed all %d files to Anki" total)))
+      (message "No files in Anki flashcard queue")))
+
+  ;; Utility functions
+  (defun anki-flashcard-queue-display ()
+    "Display the current flashcard queue."
+    (interactive)
+    (anki-flashcard-queue-load)
+    (with-current-buffer (get-buffer-create "*Anki Flashcard Queue*")
+      (erase-buffer)
+      (insert "Files with flashcard changes pending to be pushed to Anki:\n\n")
+      (if anki-flashcard-queue
+          (progn
+            (dolist (file anki-flashcard-queue)
+              (let ((abs-path (anki-flashcard-make-absolute-path file)))
+		(insert (format "- %s%s\n" file 
+				(if (file-exists-p abs-path)
+                                    ""
+                                  " (FILE MISSING)")))))
+            (insert "\n\nUse M-x my/anki-flashcard-push-all to push all files"))
+	(insert "No files in queue.\n"))
+      (special-mode)
+      (display-buffer (current-buffer))))
+
+  (defun anki-flashcard-queue-clear ()
+    "Clear the flashcard queue."
+    (interactive)
+    (anki-flashcard-queue-load)
+    (when (yes-or-no-p "Clear the entire Anki flashcard queue? ")
+      (setq anki-flashcard-queue nil)
+      (anki-flashcard-queue-save)
+      (message "Anki flashcard queue cleared")))
+
+  ;; Initialize existing flashcard buffers
+  (defun anki-flashcard-setup-existing-buffers ()
+    "Set up save hooks for existing buffers with flashcards tag."
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+	(when (and (buffer-file-name)
+                   (member "flashcards" (vulpea-buffer-tags-get)))
+          (add-hook 'after-save-hook #'anki-flashcard-save-hook nil t)))))
+
+  ;; Initialize
+  (anki-flashcard-queue-load)
+  (anki-flashcard-setup-existing-buffers)
+
+  ;; Hook into vulpea tag system
+  (add-hook 'tags/tag-added-hook #'anki-flashcard-tag-added)
+  (add-hook 'tags/tag-removed-hook #'anki-flashcard-tag-removed)
+
+  )
 
 ;;; -> Org mode -> Agenda
 

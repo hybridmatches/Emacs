@@ -121,6 +121,7 @@
 	mouse-set-region
 	ns-copy-including-secondary
 	org-save-all-org-buffers
+	pixel-scroll-precision
 	swiper
 	swiper-mc
 	tab-bar-new-tab
