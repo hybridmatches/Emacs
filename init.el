@@ -161,7 +161,9 @@
          ("<f1> v" . helpful-variable)
          ("<f1> k" . helpful-key)
          :map help-map
-         ("p" . helpful-at-point)))
+         ("p" . helpful-at-point)
+	 :map helpful-mode-map
+	 ("q" . quit-window--and-kill)))
 
 ;;; -> Look and feel -> Tabs, frames, windows
 
@@ -865,6 +867,13 @@
 
 ;;; --> AI configuration
 
+;;; gptel-config.el --- AI configuration for gptel -*- lexical-binding: t -*-
+
+;;; Commentary:
+;; Main configuration for gptel package with Claude models
+
+;;; Code:
+
 (use-package gptel
   :bind
   ("C-c g" . gptel-send)
@@ -880,8 +889,13 @@
                         :host "api.anthropic.com"
                         :key 'gptel-api-key-from-auth-source
                         ))
+  ;; Load custom tools
+  ;; (setq gptel--known-tools nil)
+  (load (expand-file-name "gptel-tools.el" user-emacs-directory))
   
   )
+
+;;; gptel-config.el ends here
 
 ;;; --> Org mode
 
@@ -1728,7 +1742,7 @@ you can catch it with `condition-case'."
 
   ;;; Adapted from
   ;;; https://www.reddit.com/r/emacs/comments/1fjnqgy/weekly_tips_tricks_c_thread/
-  (defun js/org-agenda-fold()
+  (defun js/org-agenda-fold ()
   "fold sections of agenda starting with \"* \" using space+tab"
     (interactive)
     (setq-local outline-regexp "^\\* ")
