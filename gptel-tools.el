@@ -1,4 +1,3 @@
-
 ;;; gptel-tools.el --- Custom tool definitions for gptel -*- lexical-binding: t -*-
 
 ;;; Commentary:
@@ -189,15 +188,17 @@ Output format:
 - Lists matching functions with brief descriptions
 - Lists matching variables with brief descriptions
 - Includes count of matches found
-- Results are also logged to *gptel-tool-results* buffer for debugging
+- Results are also logged to *gptel-tool-results* buffer for reference
 
-Note: When the user explicitly asks to list symbols, you should list them exactly
+Note: The search is case-sensitive and matches substrings within symbol names.
+When the user explicitly asks to list symbols, you should list them exactly
 as provided in the output. For your own discovery purposes without user explicitly
-requesting the output, summarize the findings instead."
+requesting the output, summarize the findings instead.
+"
  :args (list '(:name "keyword"
 		     :type string
 		     :description "The keyword or pattern to search for in symbol names. This should typically be a feature name (like 'elfeed'), a concept (like 'buffer'), or any text pattern you expect to find in relevant symbol names. The search is case-sensitive and will match partial names."))
- :category "discovery")
+ :category "introspection")
 
 (gptel-make-tool
  :name "clean_whole_context"
@@ -226,6 +227,46 @@ Example scenarios:
 2. When switching between different programming tasks or languages
 3. Before beginning a completely new line of inquiry or technical discussion
 4. When the AI seems to be mixing up information from previous discussions"
- :category "context-management")
+ :category "session-management")
+
+(gptel-make-tool
+ :name "set_tool_results_visibility"
+ :description "Controls how tool results appear in the conversation buffer.
+
+Purpose:
+- Configures visibility of tool output in the LLM's responses
+- Helps manage context length and readability
+- Provides flexibility for different interaction styles
+- Controls information display for complex workflows
+
+Visibility modes:
+- 'auto': Only shows results when a tool specifies :include
+- 'always': Always includes all tool call results in the response
+- 'never': Never includes tool results in the response
+
+When to use:
+- 'auto' for standard operation (default behavior)
+- 'always' when debugging or learning about tool functionality
+- 'never' when you want cleaner responses without technical details
+
+This setting affects only the current buffer and conversation."
+ :function (lambda (visibility)
+             (set (make-local-variable 'gptel-include-tool-results) 
+                  (pcase visibility
+                    ("auto" 'auto)
+                    ("always" t)
+                    ("never" nil)
+                    (_ (error "Invalid visibility mode"))))
+             (format "Tool results visibility set to %s in the current buffer" visibility))
+ :args (list 
+        '(:name "visibility"
+		:type string
+		:enum ["auto" "always" "never"]
+		:description "Determines tool result inclusion mode:
+- 'auto': Default behavior, tool-dependent inclusion
+- 'always': Force include all tool results
+- 'never': Suppress all tool results"))
+ :include t
+ :category "session-management")
 
 ;;; gptel-tools.el ends here

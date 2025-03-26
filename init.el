@@ -100,41 +100,49 @@
   :ensure nil
   :commands (dump-vars-to-file dump-closing-variables)
   :defines (closing-variables)
-  :custom
-  (closing-variables-filename "~/.emacs.d/variables.el")
+  :hook (kill-emacs . dump-closing-variables) ;; Fixed typo here
   :init
   (defvar closing-variables nil
     "Variables to dump to a file upon closing emacs.")
-  :config
+  (defvar closing-variables-filename "~/.emacs.d/variables.el"
+    "File path where persistent variables will be saved when Emacs closes.
+This file stores variables specified in `closing-variables` to maintain state
+between Emacs sessions.")
+  
   (defun dump-vars-to-file (varlist filename)
     "Simplistic dumping of variables in VARLIST to a file FILENAME"
     (save-excursion
-      (let ((buf (find-file-noselect filename)))
-        (with-current-buffer buf
+      (let ((buf (find-file-noselect filename t)))
+	(with-current-buffer buf
           (erase-buffer)
           (dump-varlist varlist buf)
           (save-buffer)
           (kill-buffer)))))
-
   (defun dump-varlist (varlist buffer)
     "Insert into buffer the setq statement to recreate the variables in VARLIST"
     (mapc (lambda (var) 
             (print (list 'setq var (list 'quote (symbol-value var))) 
                    buffer))
-          varlist))  ;; Ensure the file exists
+          varlist))
+  
+  ;; Create directory if it doesn't exist
+  (make-directory (file-name-directory closing-variables-filename) t)
+  
+  ;; Ensure the file exists
   (unless (file-exists-p closing-variables-filename)
     (with-temp-file closing-variables-filename
       (insert ";; Persistent variables\n")))
-
-  ;; Load existing variables
-  (load closing-variables-filename t t t)
-
+  
+  ;; Load existing variables - with error handling
+  (condition-case nil
+      (load closing-variables-filename t t t)
+    (error (message "Could not load %s, creating new file" closing-variables-filename)))
+  
   (defun dump-closing-variables ()
     "Writes all of the variables in the list closing-variables to the file closing-variables-filename"
     (interactive)
     (dump-vars-to-file closing-variables closing-variables-filename))
-
-  (add-hook 'kill-emacs-hook #'dump-closing-variables))
+  )
 
 
 ;;; --> Look and feel
@@ -1887,27 +1895,62 @@ Each function is called with two arguments: the tag and the buffer.")
             (message "Successfully pushed all %d files to Anki" total)))
       (message "No files in Anki flashcard queue")))
 
-  ;; Utility functions
-  (defun anki-flashcard-queue-display ()
-    "Display the current flashcard queue."
-    (interactive)
-    (anki-flashcard-queue-load)
-    (with-current-buffer (get-buffer-create "*Anki Flashcard Queue*")
-      (erase-buffer)
-      (insert "Files with flashcard changes pending to be pushed to Anki:\n\n")
-      (if anki-flashcard-queue
-          (progn
-            (dolist (file anki-flashcard-queue)
-              (let ((abs-path (anki-flashcard-make-absolute-path file)))
-		(insert (format "- %s%s\n" file 
-				(if (file-exists-p abs-path)
-                                    ""
-                                  " (FILE MISSING)")))))
-            (insert "\n\nUse M-x my/anki-flashcard-push-all to push all files"))
-	(insert "No files in queue.\n"))
-      (special-mode)
-      (display-buffer (current-buffer))))
+  ;; Define keymap first, before the mode that uses it
+  (defvar anki-flashcard-queue-mode-map
+    (let ((map (make-sparse-keymap)))
+      (define-key map (kbd "g") #'anki-flashcard-queue-refresh)
+      (define-key map (kbd "p") #'my/anki-flashcard-push-all)
+      (define-key map (kbd "c") #'anki-flashcard-queue-clear)
+      (define-key map (kbd "q") #'quit-window)
+      map)
+    "Keymap for `anki-flashcard-queue-mode'.")
 
+  ;; Now define the mode with explicit keymap assignment
+  (define-derived-mode anki-flashcard-queue-mode special-mode "Anki Queue"
+    "Major mode for displaying the Anki flashcard queue."
+    :group 'anki-editor
+    (use-local-map anki-flashcard-queue-mode-map) ;; Explicitly set the keymap
+    (setq buffer-read-only t)
+    (buffer-disable-undo))
+
+  (defun anki-flashcard-queue-refresh ()
+    "Refresh the Anki flashcard queue display."
+    (interactive)
+    (let ((buffer (get-buffer "*Anki Flashcard Queue*")))
+      (when buffer
+	(with-current-buffer buffer
+          (let ((inhibit-read-only t)
+		(pos (point)))
+            (erase-buffer)
+            (anki-flashcard-queue-load)
+            (insert "Files with flashcard changes pending to be pushed to Anki:\n\n")
+            (if anki-flashcard-queue
+		(progn
+                  (dolist (file anki-flashcard-queue)
+                    (let ((abs-path (anki-flashcard-make-absolute-path file)))
+                      (insert (format "- %s%s\n" file 
+                                      (if (file-exists-p abs-path)
+                                          ""
+					" (FILE MISSING)")))))
+                  (insert "\n\nCommands:\n")
+                  (insert "  g - Refresh this display\n")
+                  (insert "  p - Push all files to Anki\n")
+                  (insert "  c - Clear the queue\n")
+                  (insert "  q - Quit this window"))
+              (insert "No files in queue.\n"))
+            (goto-char (min pos (point-max))))))))
+
+  (defun anki-flashcard-queue-display ()
+    "Display the current flashcard queue with refresh capability."
+    (interactive)
+    (let ((buffer (get-buffer-create "*Anki Flashcard Queue*")))
+      (with-current-buffer buffer
+	(let ((inhibit-read-only t))
+          (erase-buffer)
+          (anki-flashcard-queue-mode) ;; This applies the keymap
+          (anki-flashcard-queue-refresh)
+          (display-buffer buffer)))))
+  
   (defun anki-flashcard-queue-clear ()
     "Clear the flashcard queue."
     (interactive)
