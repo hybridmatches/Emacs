@@ -915,38 +915,63 @@ between Emacs sessions.")
 ;;; --> Misc helper packages
 
 (use-package function-groups
-  :load-path "~/.emacs.d/lisp")
+  :load-path "~/.emacs.d/lisp/function-groups/")
 
-;;; --> AI configuration -> GPTel
+(use-package vterm)
+
+;;; --> AI configuration
+;;; -> AI configuration -> GPTel
 
 (use-package gptel
+  :defer t
+  :after org
   :bind
-  ("C-c g a" . gptel-abort)
-  ("C-c g c" . gptel-context-add)
-  ("C-c g r" . gptel-rewrite)
-  ("C-c g s" . gptel-send)
-  ("C-c g t" . gptel-set-topic)
-  ("C-c g /" . gptel-menu)
+  (("C-c g k" . gptel-abort)
+   ("C-c g c" . gptel-add)
+   ("C-c g r" . gptel-rewrite)
+   ("C-c g s" . gptel-send)
+   ("C-c g /" . gptel-menu)
+   ("C-c g w" . org/save-gptel-chat-as-node)
+   ("C-c g g" . gptel)
+   ("C-c g e" . elysium-query)
+   ("C-c g b" . my/gptel-toggle-tool-results-local)
+   (:map gptel-mode-map
+	 ("C-c g t" . gptel-org-set-topic))
+   )
   :hook
   (org-mode . my/gptel-enable-tool-results-in-org-mode)
   (org-mode . org/enable-gptel-for-chatlog-buffer)
   :custom
   (gptel-default-mode 'org-mode)
-  
+  :init
+  (setq gptel-model 'gpt-4o-mini)
   :config
-  (setq gptel-model 'claude-3-5-haiku-latest)
-  (setq gptel-backend (gptel-make-anthropic "Claude"
-                        :stream t
-                        :models
-                        '(claude-3-7-sonnet-latest
-                          claude-3-5-haiku-latest)
-                        :host "api.anthropic.com"
-                        :key 'gptel-api-key-from-auth-source
-                        ))
-  ;; Load custom tools
-  ;; (setq gptel--known-tools nil)
-  (load (expand-file-name "gptel-tools.el" user-emacs-directory))
+  (require 'gptel-org)
+  (defvar org-roam-chatlogs-directory "chatlogs/"
+    "The directory to save gptel chatlogs in.")
+  
+  (gptel-make-anthropic "Claude"
+    :stream t
+    :models
+    '(claude-3-7-sonnet-latest
+      claude-3-5-haiku-latest)
+    :host "api.anthropic.com"
+    :key 'gptel-api-key-from-auth-source
+    )
+  (defvar gptel-tools-files `(,(expand-file-name "lisp/ai-tools-list.el" user-emacs-directory))
+    "the list of all the files which contain gptel tools.")
 
+  (defun my/gptel--reload-tools ()
+    "reload the tools in `gptel-tools-files`."
+    (interactive)
+    (setq gptel--known-tools nil
+          gptel-tools nil)
+    (dolist (tool-file gptel-tools-files)
+      (load-file tool-file)))
+
+  ;; Load custom tools
+  (my/gptel--reload-tools)
+  
   ;; Tool results default to nil
   (setq-default gptel-include-tool-results nil)
 
@@ -966,28 +991,88 @@ If not set buffer-locally, starts with 'auto."
       (message "Gptel tool results inclusion set to %s locally" 
                (buffer-local-value 'gptel-include-tool-results (current-buffer)))))
 
-  (defun my/gptel-add-tool-to-file (tool-definition)
-    "Add a new tool definition to the gptel-tools.el file.
-TOOL-DEFINITION should be a complete gptel-make-tool expression."
-    (interactive "xEnter tool definition: ")
-    (let ((tools-file (expand-file-name "gptel-tools.el" user-emacs-directory)))
-      (with-current-buffer (find-file-noselect tools-file)
-	(goto-char (point-max))
-	(insert "\n\n;; Dynamically added tool\n")
-	(insert (format "%S\n" tool-definition))
-	(save-buffer)
-	(message "Tool added to %s" tools-file))))
-
   ;; Vulpea interface
   (defun org/enable-gptel-for-chatlog-buffer ()
     "Enable gptel-mode if the current buffer has the 'chatlog' tag."
     (when (and (buffer-file-name)
                (member "chatlog" (vulpea-buffer-tags-get)))
       (gptel-mode 1)))
+
+  
+  (defun org/save-gptel-chat-as-node ()
+    "Save the current gptel chat buffer as an org-roam node and link it in today's journal.
+If the buffer already has an ID property, just save the buffer."
+    (interactive)
+    (cond
+     ((not (derived-mode-p 'org-mode))
+      (message "Current buffer is not in org-mode"))
+     
+     ((org-id-get 1) ; If ID exists, just save the buffer
+      (save-buffer))
+    
+     (t              ; Otherwise, proceed with the full node creation
+      (let* ((title (read-string "Title for chat node: " (format-time-string "Chat %Y-%m-%d %H:%M")))
+             (file-name (concat (format-time-string "Chat-%Y-%m-%d_%H-%M") ".org"))
+             (chatlog-directory (concat org-roam-directory "/" org-roam-chatlogs-directory))
+             (full-path (expand-file-name file-name chatlog-directory)))
+
+	;; Create the chatlogs directory if it doesn't exist
+	(unless (file-directory-p chatlog-directory)
+          (make-directory chatlog-directory t))
+
+	;; Save the current buffer to the specified file
+	(write-file full-path)     ; Directly save the current buffer content to the specified path
+	(save-excursion            ; Add the title
+          (goto-char (point-min))
+	  (org-id-get-create)      ; Generate an ID for the new node
+          (re-search-forward ":END:" nil t)
+          (insert (concat "\n#+title: " title)))
+	(save-buffer)              ; Save the buffer to get the id going and to activate vulpea etc
+
+	;; Link the new node in today's journal
+	(let ((node-id (org-id-get)))
+          (org-roam-dailies-autocapture-today "c" (org-roam-link-make-string node-id title))
+          (message "Chat saved as '%s' and linked in today's journal." title))))))
   
   )
 
-;;; gptel-config.el ends here
+(use-package gptel-subtask
+  :ensure nil
+  :load-path "~/.emacs.d/lisp/gptel-subtask/"
+  :after gptel
+  )
+
+;;; End of GPTel package block
+
+;;; -> AI configuration -> elysium
+
+(use-package elysium
+  :hook
+  (prog-mode . smerge-mode)
+  :custom
+  ;; Below are the default values
+  (elysium-window-size 0.33) ; The elysium buffer will be 1/3 your screen
+  ;; Can be customized to horizontal
+  (elysium-window-style 'vertical)) 
+
+;;; End of elysium package block
+
+;;; -> AI configuration -> aidermacs
+
+(use-package aidermacs
+  :after gptel vterm
+  :bind ("C-c g a" . aidermacs-transient-menu)
+  :custom
+  (aidermacs-use-architect-mode t)
+  (aidermacs-default-model "4o mini")
+  ;; (aidermacs-architect-model "your-architect-model")  ;; Optional
+  ;; (aidermacs-editor-model "your-editor-model")        ;; Optional
+  :config
+  ;; Set API keys from the auth source once for both OpenAI and Claude
+  (setenv "OPENAI_API_KEY" (gptel-api-key-from-auth-source "api.openai.com"))
+  (setenv "CLAUDE_API_KEY" (gptel-api-key-from-auth-source "api.anthropic.com")))
+
+;;; End of aidermacs package block
 
 ;;; --> Org mode
 
@@ -2793,7 +2878,6 @@ If a key is provided, use it instead of the default capture template."
 
 (use-package elfeed-tube
   :after elfeed
-  :demand t
   :bind
   (:map elfeed-show-mode-map
 	("F" . elfeed-tube-fetch)

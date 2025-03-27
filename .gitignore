@@ -24,3 +24,5 @@
 
 /snippets/.DS_Store
 /private-config.el
+.aider*
+

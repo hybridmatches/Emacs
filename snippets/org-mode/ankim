@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: Anki Math
+# key: ankim
+# --
+:PROPERTIES:
+:ANKI_NOTE_TYPE: Basic
+:ANKI_DECK: Math
+:ANKI_TAGS: ${1:Math$$(anki/my/after-snippet-tag-handler)}
+:END:
+$0

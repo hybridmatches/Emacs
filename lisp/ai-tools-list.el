@@ -1,11 +1,3 @@
-;;; gptel-tools.el --- Custom tool definitions for gptel -*- lexical-binding: t -*-
-
-;;; Commentary:
-;; This file contains custom tool definitions for use with gptel and Anthropic's
-;; Claude models. Load this file from your main configuration.
-
-;;; Code:
-
 (gptel-make-tool
  :name "helpful_function_inspect"
  :function (lambda (function-name)
@@ -14,7 +6,6 @@
                  (save-window-excursion
                    (with-current-buffer (helpful-callable (intern function-name))
                      (message "Found documentation for function: %s" function-name)
-                     (gptel-add)
                      (buffer-substring-no-properties (point-min) (point-max))))
                (error 
                 (message "Error looking up function %s: %s" function-name (error-message-string err))
@@ -49,7 +40,6 @@ when necessary and avoid calling it multiple times for the same function."
                  (save-window-excursion
                    (with-current-buffer (helpful-variable (intern variable-name))
                      (message "Found documentation for variable: %s" variable-name)
-                     (gptel-add)
                      (buffer-substring-no-properties (point-min) (point-max))))
                (error 
                 (message "Error looking up variable %s: %s" variable-name (error-message-string err))
@@ -270,6 +260,18 @@ This setting affects only the current buffer and conversation."
  :include t
  :category "session-management")
 
+(defun my/gptel-add-tool-to-file (tool-definition)
+  "Add a new tool definition to the gptel-tools.el file.
+TOOL-DEFINITION should be a complete gptel-make-tool expression."
+  (interactive "xEnter tool definition: ")
+  (let ((tools-file (expand-file-name "gptel-tools.el" user-emacs-directory)))
+    (with-current-buffer (find-file-noselect tools-file)
+      (goto-char (point-max))
+      (insert "\n\n;; Dynamically added tool\n")
+      (insert (format "%S\n" tool-definition))
+      (save-buffer)
+      (message "Tool added to %s" tools-file))))
+
 (gptel-make-tool
  :name "create_gptel_tool"
  :description "Creates persistent new gptel tools from provided specifications.
@@ -425,3 +427,72 @@ When to use:
 The function returns a structured representation of buffer information,
 making it easy to reference specific buffers in subsequent advice." :function (defun gptel-tool-list-buffers nil "Return a formatted list of all buffers with their details." (let ((buffer-list (buffer-list)) (result-list 'nil)) (dolist (buffer buffer-list) (let* ((name (buffer-name buffer)) (file (or (buffer-file-name buffer) "")) (size (buffer-size buffer)) (mode (with-current-buffer buffer mode-name)) (modified (if (buffer-modified-p buffer) "*" " ")) (buffer-info (format "%-30s %8d bytes  %-20s %s %s" name size mode modified file))) (push buffer-info result-list))) (setq result-list (nreverse result-list)) (mapconcat #'identity (cons (format "%-30s %8s       %-20s %s %s" "Buffer" "Size" "Mode" "M" "File") (cons (make-string 80 45) result-list)) "
 "))) :include t)
+
+(gptel-make-tool
+ :function (lambda (url)
+             (let* ((jina-proxy-url (concat "https://r.jina.ai/" url))
+                    (response-buffer (url-retrieve-synchronously jina-proxy-url)))
+               (with-current-buffer response-buffer
+                 (goto-char (point-min))
+                 (forward-paragraph)
+                 (let ((dom (libxml-parse-html-region (point) (point-max))))
+                   (run-at-time 0 nil #'kill-buffer response-buffer)
+                   (with-temp-buffer
+                     (shr-insert-document dom)
+                     (buffer-substring-no-properties (point-min) (point-max)))))))
+ :name "read_url"
+ :description "Extracts text content from web pages using Jina AI's proxy service and returns it directly.
+Purpose:
+- Primary tool for web content extraction in most situations
+- Returns content immediately for direct use in the response
+- Preferred for single-page extraction and when results are needed right away
+- Simplest approach when sequential processing is acceptable
+
+When to use:
+- For standard web content extraction needs
+- When you need to analyze or reference web content in your current response
+- When extracting from a single URL or a small number of pages
+- When you need to process the content before continuing
+
+Note: This is the recommended default method for extracting web content unless there's a specific need for background processing."
+ :args (list '(:name "url"
+               :type string
+               :description "The URL to extract text from using Jina AI proxy"))
+ :include t
+ :category "web")
+
+;; (gptel-make-tool
+;;  :function (lambda (callback url)
+;;              (let ((jina-proxy-url (concat "https://r.jina.ai/" url)))
+;;                (url-retrieve jina-proxy-url
+;;                              (lambda (status callback)  ;; Add callback to lambda arguments
+;;                                (if (plist-get status :error)
+;;                                    (funcall callback (format "Error: %s" (plist-get status :error)))
+;;                                  (goto-char (point-min))
+;;                                  (forward-paragraph)
+;;                                  (let ((text-content (buffer-substring-no-properties (point) (point-max))))
+;;                                    (kill-buffer (current-buffer))
+;;                                    (funcall callback text-content))))
+;;                              (list callback))))  ;; Pass callback as an argument to the function
+;;  :name "read_url_async"
+;;  :description "Extracts web content in the background using Jina AI's proxy service without blocking.
+;; Purpose:
+;; - Alternative to read_url that operates asynchronously
+;; - Enables continued processing while waiting for content to be retrieved
+;; - Useful for maintaining system responsiveness with large pages
+;; - Enables parallel extraction from multiple sources
+
+;; When to use:
+;; - When extracting content from multiple pages simultaneously
+;; - When you need to perform other tasks while waiting for content
+;; - When processing very large web pages that might take time to retrieve
+;; - When implementing workflows that benefit from parallel operations
+;; - When needing to maintain responsiveness during content extraction
+
+;; Note: Only use this version when parallel processing is specifically beneficial. For most standard web content extraction, the synchronous read_url is preferred."
+;;  :args (list '(:name "url"
+;;                :type string
+;;                :description "The URL to extract text from"))
+;;  :async t
+;;  :include t
+;;  :category "web")
