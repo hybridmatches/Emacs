@@ -144,7 +144,6 @@ between Emacs sessions.")
     (dump-vars-to-file closing-variables closing-variables-filename))
   )
 
-
 ;;; --> Look and feel
 
 (use-package doom-themes
@@ -954,16 +953,62 @@ between Emacs sessions.")
     :stream t
     :models
     '(claude-3-7-sonnet-latest
-      claude-3-5-haiku-latest)
+      claude-3-5-haiku-latest
+      claude-3-5-sonnet-latest)
     :host "api.anthropic.com"
     :key 'gptel-api-key-from-auth-source
     )
-  (defvar gptel-tools-files `(,(expand-file-name "lisp/ai-tools-list.el" user-emacs-directory))
+  (gptel-make-gemini "Gemini"
+    :stream t
+    ;; :host "api.anthropic.com"
+    :key 'gptel-api-key-from-auth-source
+    )
+
+  
+  (defvar gptel-tools-files `(,(expand-file-name "lisp/ai-tools-list.el" user-emacs-directory)
+			      ;;,(expand-file-name "lisp/gptel-subtask/gptel-subtask-tool.el" user-emacs-directory)
+			      )
     "the list of all the files which contain gptel tools.")
+
+  ;; This macro runs before our tool file.
+  (defmacro my/gptel-tool-definer (&rest args)
+    "Define a gptel tool and save it to a variable named my/gptel-tool-tools--NAME.
+ARGS are passed directly to `gptel-make-tool`.
+The variable will be set to the tool structure created by `gptel-make-tool`.
+
+Example usage:
+  (my/gptel-tool-definer
+   :name \"get_weather\"
+   :function (lambda (location) ...)
+   :description \"Get the current weather\"
+   ...)"
+    (let* ((name-plist-pos (cl-position :name args))
+           (tool-name (and name-plist-pos (nth (1+ name-plist-pos) args)))
+           (var-name (and tool-name
+			  (intern (format "my/gptel-tool-tools--%s" tool-name)))))
+      (unless tool-name
+	(error "Tool name is required"))
+      `(progn
+	 ;; Define the gptel tool
+	 (gptel-make-tool ,@args)
+	 
+	 ;; Store the tool structure in the variable
+	 (defvar ,var-name nil
+           ,(format "The gptel tool named '%s'." tool-name))
+	 
+	 ;; Set the variable to the tool structure
+	 (setq ,var-name
+               (cdr (assoc ,tool-name
+                           (cdr (assoc (or (plist-get ',args :category) "misc")
+                                       gptel--known-tools)))))
+	 
+	 ;; Return the variable name for convenience
+	 ',var-name)))
 
   (defun my/gptel--reload-tools ()
     "reload the tools in `gptel-tools-files`."
     (interactive)
+    (message "Reloading GPTel tools.")
     (setq gptel--known-tools nil
           gptel-tools nil)
     (dolist (tool-file gptel-tools-files)
@@ -993,11 +1038,10 @@ If not set buffer-locally, starts with 'auto."
 
   ;; Vulpea interface
   (defun org/enable-gptel-for-chatlog-buffer ()
-    "Enable gptel-mode if the current buffer has the 'chatlog' tag."
+    "Enable gptel-mode if the current buffer has the `chatlog' tag."
     (when (and (buffer-file-name)
                (member "chatlog" (vulpea-buffer-tags-get)))
       (gptel-mode 1)))
-
   
   (defun org/save-gptel-chat-as-node ()
     "Save the current gptel chat buffer as an org-roam node and link it in today's journal.
@@ -1036,11 +1080,12 @@ If the buffer already has an ID property, just save the buffer."
   
   )
 
-(use-package gptel-subtask
-  :ensure nil
-  :load-path "~/.emacs.d/lisp/gptel-subtask/"
-  :after gptel
-  )
+;; (use-package gptel-subtask
+;;   :ensure nil
+;;   :load-path "~/.emacs.d/lisp/gptel-subtask/"
+;;   :after gptel
+;;   :requires gptel
+;;   )
 
 ;;; End of GPTel package block
 
@@ -1063,8 +1108,10 @@ If the buffer already has an ID property, just save the buffer."
   :after gptel vterm
   :bind ("C-c g a" . aidermacs-transient-menu)
   :custom
+  (aidermacs-backend 'vterm)
   (aidermacs-use-architect-mode t)
-  (aidermacs-default-model "4o mini")
+  (aidermacs-default-model "gpt-4o-mini")
+  (aidermacs-extra-args '("--edit-format editor-diff" "--copy-paste"))
   ;; (aidermacs-architect-model "your-architect-model")  ;; Optional
   ;; (aidermacs-editor-model "your-editor-model")        ;; Optional
   :config
@@ -1266,7 +1313,15 @@ With prefix ARG, prompt for browser choice."
                   (funcall browse-func url)
                   (setq count (1+ count)))))
             
-            ;; 2. Try HTML href attributes
+            ;; 2. Try Markdown links [description](url)
+            (goto-char (point-min))
+            (while (re-search-forward "\\[.*?\\](\\([^)]*\\))" nil t)
+              (let ((url (match-string 1)))
+                (when (string-match-p "^\\(https?://\\|www\\.\\)" url)
+                  (funcall browse-func url)
+                  (setq count (1+ count)))))
+            
+            ;; 3. Try HTML href attributes
             (goto-char (point-min))
             (while (re-search-forward "href=[\"']\\([^\"']+\\)[\"']" nil t)
               (let ((url (match-string 1)))
@@ -1274,7 +1329,7 @@ With prefix ARG, prompt for browser choice."
                   (funcall browse-func url)
                   (setq count (1+ count)))))
             
-            ;; 3. Try plain text URLs if nothing else found
+            ;; 4. Try plain text URLs if nothing else found
             (when (= count 0)
               (goto-char (point-min))
               (while (re-search-forward "\\(https?://\\|www\\.\\)[^\s\n\"]+" nil t)
@@ -1295,6 +1350,8 @@ With prefix ARG, prompt for browser choice."
 
   ) ;;
 ;;; End of org-mode package block
+
+(use-package org-mac-link)
 
 (use-package org-fragtog)
 
@@ -2639,12 +2696,12 @@ After this timeout, database changes will be saved to disk.")
     elfeed-search-show-tag       ; tag through show mode
     elfeed-search-show-untag     ; untag through show mode
     elfeed
-    elfeed-search-show-entry
-    elfeed-search-untag-all-unread
-    elfeed-search-trash
-    js/log-elfeed-process
-    elfeed-browse-url
-    elfeed-browse-url-firefox
+    elfeed-search-show-entry     ; spc
+    elfeed-search-untag-all-unread ; r
+    elfeed-search-trash          ; t
+    js/log-elfeed-process        ; P
+    elfeed-browse-url            ; b
+    elfeed-browse-url-firefox    ; B
     )
   "List of Elfeed functions that modify the database state.")
 
@@ -2732,7 +2789,7 @@ before exit in case another device made changes."
 ;; Start activity timer only for functions that modify state
 (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
 (group-advise-functions elfeed-activity-function-group
-                        :after
+                        :before
                         my/elfeed-activity-functions)
 
 (defun my/elfeed-setup-local-activation-hooks ()
