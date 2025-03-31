@@ -2700,7 +2700,9 @@ After this timeout, database changes will be saved to disk.")
     elfeed-search-untag-all-unread ; r
     elfeed-search-trash          ; t
     js/log-elfeed-process        ; P
-    elfeed-browse-url            ; b
+    elfeed-search-browse-url     ; b
+    elfeed-show-browse-url       ; b
+    elfeed-search-url-firefox    ; B
     elfeed-browse-url-firefox    ; B
     )
   "List of Elfeed functions that modify the database state.")
@@ -2713,6 +2715,7 @@ After this timeout, database changes will be saved to disk.")
   (when my/elfeed-inactivity-timer
     (cancel-timer my/elfeed-inactivity-timer)
     (setq my/elfeed-inactivity-timer nil)
+    (alert "Elfeed: Now inactive.")
     (message "Elfeed: Now inactive.")))
 
 (defun my/elfeed-inactivity-timer-function ()
@@ -2720,14 +2723,16 @@ After this timeout, database changes will be saved to disk.")
   (setq my/elfeed-inactivity-timer nil)
   (message "Elfeed: Saving to disk...")
   (elfeed-db-save)
-  (message "Elfeed: Database saved. Now inactive."))
+  (message "Elfeed: Database saved. Now inactive.")
+  (alert "Elfeed: Now inactive."))
 
 (defun my/elfeed-start-inactivity-timer ()
   "Reset the inactivity timer for Elfeed.
 This indicates the database has been modified and should be saved
 after a period of inactivity."
   (unless my/elfeed-inactivity-timer
-    (message "Elfeed: Timer started."))
+    (message "Elfeed: Timer started.")
+    (alert "Elfeed: Timer started"))
   
   (when my/elfeed-inactivity-timer
     (cancel-timer my/elfeed-inactivity-timer)
@@ -2789,7 +2794,7 @@ before exit in case another device made changes."
 ;; Start activity timer only for functions that modify state
 (function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
 (group-advise-functions elfeed-activity-function-group
-                        :before
+                        :after
                         my/elfeed-activity-functions)
 
 (defun my/elfeed-setup-local-activation-hooks ()
@@ -2816,6 +2821,7 @@ before exit in case another device made changes."
     (message "Elfeed: Database force-pushed to disk.")))
   )
 ;;; End of elfeed use-package block
+
 
 (use-package cuckoo-search
   :vc (:url "https://github.com/rtrppl/cuckoo-search" :rev :newest)
