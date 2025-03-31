@@ -2495,7 +2495,7 @@ Each function is called with two arguments: the tag and the buffer.")
   (elfeed-show-mode . mixed-pitch-mode)
   (elfeed-show-mode . visual-line-mode)
   (elfeed-show-mode . efs/org-mode-visual-fill)
-  (elfeed-search-mode . my/elfeed-setup-local-activation-hooks)
+  ;; (elfeed-search-mode . my/elfeed-setup-local-activation-hooks)
   :config
   ;; Variables
   (setq-default elfeed-search-filter "-trash @6-months-ago +unread")
@@ -2678,149 +2678,150 @@ In show mode, adds the current entry; in search mode, adds all selected entries.
 ;;; -> Elfeed -> Multi-Device Syncing
 (require 'function-groups)
 
-(defvar my/elfeed-inactivity-timer nil
-  "Timer to track Elfeed inactivity. When non-nil, Elfeed is considered active.
-In this case, we assume local changes need to be saved to disk.")
+;;; Core Variables
+(defvar my/elfeed-db-modified nil
+  "When non-nil, indicates the Elfeed database has unsaved modifications.")
 
-(defvar my/elfeed-inactivity-timeout 15
-  "Time in seconds before considering Elfeed inactive (default: 15 seconds).
-After this timeout, database changes will be saved to disk.")
+(defvar my/elfeed-save-timer nil
+  "Timer for deferred database saving.")
 
-;; Only include functions that actually modify database state
-(defvar my/elfeed-activity-functions
-  '(elfeed-search-toggle-all     ; m
-    elfeed-search-untag-all      ; M-u
-    elfeed-search-tag-all        ; M-t
-    elfeed-search-update--force  ; g
-    elfeed-search-fetch          ; G
-    elfeed-search-show-tag       ; tag through show mode
-    elfeed-search-show-untag     ; untag through show mode
-    elfeed
-    elfeed-search-show-entry     ; spc
-    elfeed-search-untag-all-unread ; r
-    elfeed-search-trash          ; t
-    js/log-elfeed-process        ; P
-    elfeed-search-browse-url     ; b
-    elfeed-show-browse-url       ; b
-    elfeed-search-url-firefox    ; B
-    elfeed-browse-url-firefox    ; B
-    )
-  "List of Elfeed functions that modify the database state.")
+(defvar my/elfeed-save-delay 15
+  "Seconds to wait after modification before saving database.")
 
-(define-function-group elfeed-activity-function-group)
+(defvar my/elfeed-debug nil
+  "When non-nil, enable verbose debugging messages for Elfeed sync.")
 
-(defun my/elfeed-stop-inactivity-timer ()
-  "Cancel the activity timer."
-  (interactive)
-  (when my/elfeed-inactivity-timer
-    (cancel-timer my/elfeed-inactivity-timer)
-    (setq my/elfeed-inactivity-timer nil)
-    (alert "Elfeed: Now inactive.")
-    (message "Elfeed: Now inactive.")))
+;;; Core Functions
+(defun my/elfeed-mark-db-modified (&rest _)
+  "Mark database as modified and schedule a save.
+This is attached directly to database modification functions."
+  (when my/elfeed-debug
+    (message "Elfeed: Database modification detected!"))
+  (setq my/elfeed-db-modified t)
+  (when my/elfeed-debug
+    (message "Elfeed: Modified flag set to %s" my/elfeed-db-modified))
+  (my/elfeed-schedule-save))
 
-(defun my/elfeed-inactivity-timer-function ()
-  "Function to be run upon the activity timer completion."
-  (setq my/elfeed-inactivity-timer nil)
-  (message "Elfeed: Saving to disk...")
-  (elfeed-db-save)
-  (message "Elfeed: Database saved. Now inactive.")
-  (alert "Elfeed: Now inactive."))
-
-(defun my/elfeed-start-inactivity-timer ()
-  "Reset the inactivity timer for Elfeed.
-This indicates the database has been modified and should be saved
-after a period of inactivity."
-  (unless my/elfeed-inactivity-timer
-    (message "Elfeed: Timer started.")
-    (alert "Elfeed: Timer started"))
+(defun my/elfeed-schedule-save ()
+  "Schedule a database save after inactivity period."
+  (when my/elfeed-debug
+    (message "Elfeed: Scheduling save in %s seconds" my/elfeed-save-delay))
   
-  (when my/elfeed-inactivity-timer
-    (cancel-timer my/elfeed-inactivity-timer)
-    (setq my/elfeed-inactivity-timer nil))
+  (unless my/elfeed-save-timer
+    (message "Elfeed: Timer started."))
 
-  ;; Start a new timer
-  (setq my/elfeed-inactivity-timer
-        (run-with-timer my/elfeed-inactivity-timeout nil
-                        #'my/elfeed-inactivity-timer-function)))
+ 
+  (when my/elfeed-save-timer
+    (when my/elfeed-debug
+      (message "Elfeed: Cancelling existing save timer"))
+    (cancel-timer my/elfeed-save-timer)
+    (setq my/elfeed-save-timer nil))
+    
+  (setq my/elfeed-save-timer
+        (run-with-timer my/elfeed-save-delay nil #'my/elfeed-save-if-modified))
+  (when my/elfeed-debug
+    (message "Elfeed: Save timer scheduled")))
+
+(defun my/elfeed-save-if-modified ()
+  "Save the database if it has unsaved changes."
+  (when my/elfeed-debug
+    (message "Elfeed: Save timer triggered. Modified: %s" my/elfeed-db-modified))
+  
+  (when my/elfeed-db-modified
+    (message "Elfeed: Saving database changes...")
+    (elfeed-db-save)
+    (setq my/elfeed-db-modified nil)
+    (setq my/elfeed-save-timer nil)
+    (message "Elfeed: Database saved.")))
 
 (defun my/elfeed-load-db ()
-  "Load the Elfeed database from disk.
-This is purely for viewing and doesn't indicate activity.
-We should only load when inactive."
-  (unless my/elfeed-inactivity-timer
+  "Load the database from disk if no unsaved changes exist."
+  (when my/elfeed-debug
+    (message "Elfeed: Load DB called. Modified: %s" my/elfeed-db-modified))
+  
+  (unless my/elfeed-db-modified
     (message "Elfeed: Loading database from disk...")
     (elfeed-db-load)
+    (when my/elfeed-debug
+      (message "Elfeed: Database loaded, updating search buffer..."))
+    
     (when-let ((buffer (get-buffer "*elfeed-search*")))
       (with-current-buffer buffer
-	(elfeed-search-update)))
+        (elfeed-search-update t))) ; Force update
+    
     (message "Elfeed: Database loaded.")))
 
-(defun my/elfeed-initialize ()
-  "Load the Elfeed database from disk for viewing.
-This doesn't start the activity timer since no changes are being made."
-  (unless my/elfeed-inactivity-timer ; Only reload if not active
-    (my/elfeed-load-db)))
-
-(defun my/elfeed-shutdown ()
-  "Handle Elfeed shutdown.
-If we're not active (timer not running), reload the database
-before exit in case another device made changes."
-  (if my/elfeed-inactivity-timer
-      ;; We're active - save our changes
-      (progn
-        (message "Elfeed: Saving database before exit...")
-        (elfeed-db-save)
-        (my/elfeed-stop-inactivity-timer))
-    ;; We're not active - just ensure we're in sync
-    (message "Elfeed: Ensuring database sync before exit...")
-    (elfeed-db-load)))
-
-;; Simple tab switching handler - only runs when in elfeed buffers
-(defun my/elfeed-tab-change-handler (&rest _)
-  "Handle tab switching by reloading the elfeed database if needed."
-  (my/elfeed-initialize))
-
-(defun my/elfeed-save-on-kill-emacs ()
-  "Save elfeed database on Emacs exit if timer is active."
-  (when my/elfeed-inactivity-timer
-    (message "Elfeed: Saving database before Emacs exit...")
-    (elfeed-db-save)))
-
-;; Startup and shutdown
-(advice-add 'elfeed :before #'my/elfeed-initialize)
-(advice-add 'elfeed-search-quit-window :before #'my/elfeed-shutdown)
-(add-hook 'kill-emacs-hook #'my/elfeed-save-on-kill-emacs)
-
-;; Start activity timer only for functions that modify state
-(function-group-add-hook-function 'elfeed-activity-function-group #'my/elfeed-start-inactivity-timer)
-(group-advise-functions elfeed-activity-function-group
-                        :after
-                        my/elfeed-activity-functions)
-
+;;; Setup hooks for buffer activation
 (defun my/elfeed-setup-local-activation-hooks ()
   "Set up buffer-local hooks for database reloading on activation."
-  (add-hook 'focus-in-hook #'my/elfeed-initialize nil t)
-  (add-hook 'tab-bar-tab-post-select-functions #'my/elfeed-tab-change-handler nil t))
+  (when my/elfeed-debug
+    (message "Elfeed: Setting up local activation hooks in buffer: %s" 
+             (current-buffer)))
+  
+  (add-hook 'focus-in-hook #'my/elfeed-load-db nil t)
+  (add-hook 'tab-bar-tab-post-select-functions 
+            (lambda (&rest _) 
+              (when my/elfeed-debug
+                (message "Elfeed: Tab selection triggered db load"))
+              (my/elfeed-load-db))
+            nil t)
+  
+  (when my/elfeed-debug
+    (message "Elfeed: Local activation hooks installed.")))
 
-;; Manual sync functions
-(defun my/elfeed-force-pull ()
-  "Force load the Elfeed database from disk, regardless of activity status."
-  (interactive)
-  (when (yes-or-no-p "Force pull Elfeed database from disk? This will overwrite any unsaved local changes. ")
-    (message "Elfeed: Force pulling database...")
-    (elfeed-db-load)
-    (elfeed-search-update)
-    (message "Elfeed: Database force-pulled from disk.")))
+;;; Setup and Hooks
+(defun my/elfeed-setup-sync ()
+  "Setup database synchronization by attaching to core DB functions."
+  (when my/elfeed-debug
+    (message "Elfeed: Setting up sync system..."))
+  
+  ;; Monitor actual database modification functions
+  (advice-add 'elfeed-tag :after #'my/elfeed-mark-db-modified)
+  (advice-add 'elfeed-untag :after #'my/elfeed-mark-db-modified)
+  (advice-add 'elfeed-db-add :after #'my/elfeed-mark-db-modified)
+  
+  ;; Load on entering/focusing Elfeed
+  (advice-add 'elfeed :before #'my/elfeed-load-db)
+  
+  ;; Add the local hooks to elfeed modes
+  (add-hook 'elfeed-search-mode-hook #'my/elfeed-setup-local-activation-hooks)
+  (add-hook 'elfeed-show-mode-hook #'my/elfeed-setup-local-activation-hooks)
+  
+  ;; Ensure save on exit
+  (advice-add 'elfeed-search-quit-window :before #'my/elfeed-save-if-modified)
+  (add-hook 'kill-emacs-hook #'my/elfeed-save-if-modified)
+  
+  (when my/elfeed-debug
+    (message "Elfeed: Setup complete!")))
 
-(defun my/elfeed-force-push ()
-  "Force save the Elfeed database to disk, regardless of activity status."
+;; Initialize the system
+(my/elfeed-setup-sync)
+
+;; Command to manually trigger a save
+(defun my/elfeed-manual-save ()
+  "Manually save the Elfeed database, regardless of the modified flag."
   (interactive)
-  (when (yes-or-no-p "Force push Elfeed database to disk? This may overwrite changes made on other devices. ")
-    (message "Elfeed: Force pushing database...")
-    (elfeed-db-save)
-    (message "Elfeed: Database force-pushed to disk.")))
-  )
-;;; End of elfeed use-package block
+  (message "Elfeed: Manual save requested")
+  (elfeed-db-save)
+  (setq my/elfeed-db-modified nil)
+  (message "Elfeed: Database manually saved."))
+
+;; Command to show sync status
+(defun my/elfeed-sync-status ()
+  "Display the current status of the Elfeed sync system."
+  (interactive)
+  (message "Elfeed Status: Modified: %s, Timer: %s" 
+           my/elfeed-db-modified 
+           (if my/elfeed-save-timer "Active" "Inactive")))
+
+;; Command to toggle debug mode
+(defun my/elfeed-toggle-debug ()
+  "Toggle verbose debug messages for Elfeed sync."
+  (interactive)
+  (setq my/elfeed-debug (not my/elfeed-debug))
+  (message "Elfeed: Debug mode %s" 
+           (if my/elfeed-debug "enabled" "disabled")))
+) ;;; End of elfeed use-package block
 
 
 (use-package cuckoo-search
