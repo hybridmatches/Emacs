@@ -2826,21 +2826,23 @@ In show mode, adds the current entry; in search mode, adds all selected entries.
 
 (use-package elfeed-sync
   :load-path "~/.emacs.d/lisp/elfeed-sync"
+  :defer nil
   :after elfeed
   :init
   ;; Make sure timeout.el is in the load path
   (add-to-list 'load-path "~/.emacs.d/lisp")
-  :config
+  ;; :config
   ;; Optional: Adjust timing parameters if default values don't suit your workflow
   ;; (setq my/elfeed-save-delay 10)      ;; Save after 10 seconds of inactivity
   ;; (setq my/elfeed-load-throttle 3)    ;; Allow loading at most once every 3 seconds
   
   ;; Optional: Add keybindings for the utility functions
-  ;; :bind (:map elfeed-search-mode-map
-  ;;        ("S" . my/elfeed-manual-save)
-  ;;        ("R" . my/elfeed-force-reload)
-  ;;        ("?" . my/elfeed-sync-status)
-  ;;        ("D" . my/elfeed-toggle-debug))
+  :bind (:map elfeed-search-mode-map
+         ;; ("s" . my/elfeed-manual-save)
+         ;; ("r" . my/elfeed-force-reload)
+         ("?" . my/elfeed-sync-status)
+         ("D" . my/elfeed-toggle-debug)
+  )
   )
 
 (use-package cuckoo-search
