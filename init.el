@@ -1355,7 +1355,47 @@ With prefix ARG, prompt for browser choice."
 
 (use-package org-mac-link)
 
-(use-package org-fragtog)
+(use-package xenops
+  :disabled nil ;; Enable xenops
+  :defer nil
+  :after org
+  :custom
+  (xenops-math-image-scale-factor 1.6) ;; Scaling factor for SVG math images
+  (xenops-math-latex-process 'lualatex) ;; Use lualatex as the LaTeX process
+  (xenops-math-latex-process-alist
+   '(("lualatex"
+      :programs ("lualatex" "convert")
+      :description "pdf > png"
+      :message "You need to install lualatex and ImageMagick."
+      :image-input-type "pdf" :image-output-type "png"
+      :image-size-adjust (1.0 . 1.0)
+      :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+      :image-converter ("convert -density %D -trim -antialias %f -quality 100 %O"))))
+  :config
+  ;; (add-hook 'org-mode-hook #'xenops-mode) ;; Activate xenops in org-mode
+)
+
+(use-package org-fragtog
+  :disabled ;; Seems like xenops is working again
+  :defer nil
+  :after org
+  :custom
+  (org-latex-create-formula-image-program 'imagemagick)
+  :config
+  (add-to-list
+   'org-preview-latex-process-alist
+   '(imagemagick-lualatex
+     :programs ("lualatex" "convert") :description "pdf > png"
+     :message
+     "you need to install the programs: latex and imagemagick."
+     :image-input-type "pdf" :image-output-type "png"
+     :image-size-adjust (1.0 . 1.0) :latex-compiler
+     ("lualatex -interaction nonstopmode -output-directory %o %f")
+     :image-converter
+     ("convert -density %D -trim -antialias %f -quality 100 %O")))
+
+  (plist-put org-format-latex-options :scale 1.6)
+)
 
 (use-package org-appear
   :hook org-mode)
@@ -2309,26 +2349,13 @@ Each function is called with two arguments: the tag and the buffer.")
   (org-src-fontify-natively t)
   (org-src-tab-acts-natively t)
   (org-src-preserve-indentation t)
-  (org-latex-create-formula-image-program 'imagemagick)
   (org-latex-packages-alist '(("" "/Users/jure/.emacs.d/defaults/js" t)))
 
   :config
   (require 'org-tempo)
   (require 'ob-haskell)
 
-  (add-to-list
-   'org-preview-latex-process-alist
-   '(imagemagick-lualatex
-     :programs ("lualatex" "convert") :description "pdf > png"
-     :message
-     "you need to install the programs: latex and imagemagick."
-     :image-input-type "pdf" :image-output-type "png"
-     :image-size-adjust (1.0 . 1.0) :latex-compiler
-     ("lualatex -interaction nonstopmode -output-directory %o %f")
-     :image-converter
-     ("convert -density %D -trim -antialias %f -quality 100 %O")))
-
-  (plist-put org-format-latex-options :scale 1.6)
+  
 
   (org-babel-do-load-languages
    'org-babel-load-languages
@@ -2593,10 +2620,157 @@ In show mode, adds the current entry; in search mode, adds all selected entries.
 	(run-with-timer 2 nil #'wallabag-request-and-synchronize-entries))
       
       (message "Added %d entries to wallabag" added-count)))
+;;; -> Elfeed -> Multi-Device Syncing
+
+;;; Core Variables
+  (defvar my/elfeed-db-modified nil
+    "When non-nil, indicates the Elfeed database has unsaved modifications.")
+
+  (defvar my/elfeed-save-timer nil
+    "Timer for deferred database saving.")
+
+  (defvar my/elfeed-save-delay 15
+    "Seconds to wait after modification before saving database.")
+
+  (defvar my/elfeed-debug nil
+    "When non-nil, enable verbose debugging messages for Elfeed sync.")
+
+;;; Core Functions
+  (defun my/elfeed-mark-db-modified (&rest _)
+    "Mark database as modified and schedule a save.
+This is attached directly to database modification functions."
+    (when my/elfeed-debug
+      (message "Elfeed: Database modification detected!"))
+    (setq my/elfeed-db-modified t)
+    (when my/elfeed-debug
+      (message "Elfeed: Modified flag set to %s" my/elfeed-db-modified))
+    (my/elfeed-schedule-save))
+
+  (defun my/elfeed-schedule-save ()
+    "Schedule a database save after inactivity period."
+    (when my/elfeed-debug
+      (message "Elfeed: Scheduling save in %s seconds" my/elfeed-save-delay))
+    
+    (unless my/elfeed-save-timer
+      (message "Elfeed: Timer started."))
+    
+    (when my/elfeed-save-timer
+      (when my/elfeed-debug
+	(message "Elfeed: Cancelling existing save timer"))
+      (cancel-timer my/elfeed-save-timer)
+      (setq my/elfeed-save-timer nil))
+    
+    (setq my/elfeed-save-timer
+          (run-with-timer my/elfeed-save-delay nil #'my/elfeed-save-if-modified))
+    (when my/elfeed-debug
+      (message "Elfeed: Save timer scheduled")))
+
+  (defun my/elfeed-save-if-modified ()
+    "Save the database if it has unsaved changes."
+    (when my/elfeed-debug
+      (message "Elfeed: Save timer triggered. Modified: %s" my/elfeed-db-modified))
+    
+    (when my/elfeed-db-modified
+      (message "Elfeed: Saving database changes...")
+      (elfeed-db-save)
+      (setq my/elfeed-db-modified nil)
+      (setq my/elfeed-save-timer nil)
+      (message "Elfeed: Database saved.")))
+
+  (defun my/elfeed-load-db ()
+    "Load the database from disk if no unsaved changes exist."
+    (when my/elfeed-debug
+      (message "Elfeed: Load DB called. Modified: %s" my/elfeed-db-modified))
+    
+    (unless my/elfeed-db-modified
+      (message "Elfeed: Loading database from disk...")
+      (elfeed-db-load)
+      (when my/elfeed-debug
+	(message "Elfeed: Database loaded, updating search buffer..."))
+      
+      (when-let ((buffer (get-buffer "*elfeed-search*")))
+	(with-current-buffer buffer
+          (elfeed-search-update t))) ; Force update
+      
+      (message "Elfeed: Database loaded.")))
+
+;;; Setup hooks for buffer activation
+  (defun my/elfeed-setup-local-activation-hooks ()
+    "Set up buffer-local hooks for database reloading on activation."
+    (when my/elfeed-debug
+      (message "Elfeed: Setting up local activation hooks in buffer: %s" 
+               (current-buffer)))
+    
+    (add-hook 'focus-in-hook #'my/elfeed-load-db nil t)
+    (add-hook 'tab-bar-tab-post-select-functions 
+              (lambda (&rest _) 
+		(when my/elfeed-debug
+                  (message "Elfeed: Tab selection triggered db load"))
+		(my/elfeed-load-db))
+              nil t)
+    
+    (when my/elfeed-debug
+      (message "Elfeed: Local activation hooks installed.")))
+
+;;; Setup and Hooks
+  (defun my/elfeed-setup-sync ()
+    "Setup database synchronization by attaching to core DB functions."
+    (when my/elfeed-debug
+      (message "Elfeed: Setting up sync system..."))
+    
+    ;; Monitor actual database modification functions
+    (advice-add 'elfeed-tag :after #'my/elfeed-mark-db-modified)
+    (advice-add 'elfeed-untag :after #'my/elfeed-mark-db-modified)
+    (advice-add 'elfeed-db-add :after #'my/elfeed-mark-db-modified)
+    
+    ;; Load on entering/focusing Elfeed
+    (advice-add 'elfeed :before #'my/elfeed-load-db)
+    
+    ;; Add the local hooks to elfeed modes
+    (add-hook 'elfeed-search-mode-hook #'my/elfeed-setup-local-activation-hooks)
+    (add-hook 'elfeed-show-mode-hook #'my/elfeed-setup-local-activation-hooks)
+    
+    ;; Ensure save on exit
+    (advice-add 'elfeed-search-quit-window :before #'my/elfeed-save-if-modified)
+    (add-hook 'kill-emacs-hook #'my/elfeed-save-if-modified)
+    
+    (when my/elfeed-debug
+      (message "Elfeed: Setup complete!")))
+
+  ;; Initialize the system
+  (my/elfeed-setup-sync)
+
+  ;; Command to manually trigger a save
+  (defun my/elfeed-manual-save ()
+    "Manually save the Elfeed database, regardless of the modified flag."
+    (interactive)
+    (message "Elfeed: Manual save requested")
+    (elfeed-db-save)
+    (setq my/elfeed-db-modified nil)
+    (message "Elfeed: Database manually saved."))
+
+  ;; Command to show sync status
+  (defun my/elfeed-sync-status ()
+    "Display the current status of the Elfeed sync system."
+    (interactive)
+    (message "Elfeed Status: Modified: %s, Timer: %s" 
+             my/elfeed-db-modified 
+             (if my/elfeed-save-timer "Active" "Inactive")))
+
+  ;; Command to toggle debug mode
+  (defun my/elfeed-toggle-debug ()
+    "Toggle verbose debug messages for Elfeed sync."
+    (interactive)
+    (setq my/elfeed-debug (not my/elfeed-debug))
+    (message "Elfeed: Debug mode %s" 
+             (if my/elfeed-debug "enabled" "disabled")))
+
 
 ) ;;; End of elfeed use-package block
 
+;;; The abstracted out package has some weird issues
 (use-package elfeed-sync
+  :disabled
   :load-path "~/.emacs.d/lisp/elfeed-sync"
   ;; NOTE TO SELF: Defer after pattern
   :defer nil
@@ -2629,6 +2803,7 @@ In show mode, adds the current entry; in search mode, adds all selected entries.
 
 (use-package elfeed-org
   :after (elfeed org)
+  :defer nil
   :custom
   (rmh-elfeed-org-files (list (concat org-roam-directory "/elfeed.org")))
   

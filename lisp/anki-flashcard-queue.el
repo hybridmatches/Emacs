@@ -3,4 +3,6 @@
 
 (setq anki-flashcard-queue
   '(
+    "20240929173550-komutativna_algebra.org"
+    "tasks.org"
   ))

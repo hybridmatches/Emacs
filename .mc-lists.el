@@ -111,6 +111,8 @@
 	counsel-M-x
 	counsel-switch-buffer
 	counsel-yank-pop
+	dired-do-flagged-delete
+	dired-find-file-other-window
 	handle-switch-frame
 	iedit-switch-to-mc-mode
 	ignore
