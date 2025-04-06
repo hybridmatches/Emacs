@@ -197,6 +197,7 @@ between Emacs sessions.")
   :hook prog-mode)
 
 (use-package alert
+  :defer nil
   :config
   (if (eq system-type 'darwin)
       (setq
@@ -732,10 +733,10 @@ between Emacs sessions.")
   :ensure nil
   :bind ("s-g" . casual-avy-tmenu)
   :hook
-  (markdown-mode-hook . imenu-add-menubar-index)
-  (makefile-mode-hook . imenu-add-menubar-index)
-  (prog-mode-hook . imenu-add-menubar-index)
-  (org-mode-hook . imenu-add-menubar-index)
+  (markdown-mode . imenu-add-menubar-index)
+  (makefile-mode . imenu-add-menubar-index)
+  (prog-mode . imenu-add-menubar-index)
+  (org-mode . imenu-add-menubar-index)
   )
 
 (use-package casual-symbol-overlay
@@ -935,6 +936,8 @@ between Emacs sessions.")
    ("C-c g g" . gptel)
    ("C-c g e" . elysium-query)
    ("C-c g b" . my/gptel-toggle-tool-results-local)
+   ("C-c g T" . my/gptel-translate-to-english)
+   ("C-c g f" . my/gptel-finish)
    (:map gptel-mode-map
 	 ("C-c g t" . gptel-org-set-topic))
    )
@@ -1078,6 +1081,17 @@ If the buffer already has an ID property, just save the buffer."
 	(let ((node-id (org-id-get)))
           (org-roam-dailies-autocapture-today "c" (org-roam-link-make-string node-id title))
           (message "Chat saved as '%s' and linked in today's journal." title))))))
+
+  ;;; -> GPTel -> rewrite utilities
+  (defun my/gptel-translate-to-english ()
+    "Rewrite the current buffer's text to English while preserving Org IDs and links."
+    (interactive)
+    (gptel--suffix-rewrite "Translate this text to English while keeping Org IDs and links intact."))
+
+  (defun my/gptel-finish ()
+    "Finalize the content at point or in the current buffer while preserving Org IDs and links."
+    (interactive)
+    (gptel--suffix-rewrite "Finish this content while keeping Org IDs and links intact."))
   
   )
 
@@ -1184,10 +1198,14 @@ If the buffer already has an ID property, just save the buffer."
    ("M-o" . ace-link-org)
    ("C-c C-l" . ar/org-insert-link-dwim)
    ("C-'" . nil)
-   ("C-," . nil))
+   ("C-," . nil)
+   ;; Alternative with arrow-like keys
+   ("C-c n ." . my/org-narrow-to-heading-content) ;; current position
+   ("C-c n >" . my/org-next-heading-narrow)       ;; move forward
+   ("C-c n <" . my/org-previous-heading-narrow)   ;; move backward
+   )
   
   :config
-  
   (defun js/org-rename-buffer-to-title ()
     "Rename buffer to value of #+TITLE:."
     (interactive)
@@ -1350,30 +1368,62 @@ With prefix ARG, prompt for browser choice."
             (funcall browse-func url)
           (message "No URL at point"))))))
 
-  ) ;;
+  ;;; -> Org mode -> Navigation
+  (defun my/org-narrow-to-heading-content ()
+    "Narrow to current heading's content, excluding subheadings.
+Automatically expands the heading if it's folded."
+    (interactive)
+    (save-excursion
+      (org-back-to-heading t)
+      ;; Ensure the heading is expanded
+      (org-show-entry)
+      (let ((start (point))
+            (end (save-excursion
+                   (outline-next-heading)
+                   (point))))
+	(narrow-to-region start end))))
+
+  (defun my/org-next-heading-narrow ()
+    "Move to next visible heading and narrow to its content.
+Automatically expands the heading if it's folded."
+    (interactive)
+    (widen)
+    (org-next-visible-heading 1)
+    (my/org-narrow-to-heading-content))
+
+  (defun my/org-previous-heading-narrow ()
+    "Move to previous visible heading and narrow to its content.
+Automatically expands the heading if it's folded."
+    (interactive)
+    (widen)
+    (org-previous-visible-heading 1)
+    (my/org-narrow-to-heading-content))
+
+  )
 ;;; End of org-mode package block
 
 (use-package org-mac-link)
 
 (use-package xenops
-  :disabled nil ;; Enable xenops
-  :defer nil
   :after org
-  :custom
-  (xenops-math-image-scale-factor 1.6) ;; Scaling factor for SVG math images
-  (xenops-math-latex-process 'lualatex) ;; Use lualatex as the LaTeX process
-  (xenops-math-latex-process-alist
-   '(("lualatex"
-      :programs ("lualatex" "convert")
-      :description "pdf > png"
-      :message "You need to install lualatex and ImageMagick."
-      :image-input-type "pdf" :image-output-type "png"
-      :image-size-adjust (1.0 . 1.0)
-      :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
-      :image-converter ("convert -density %D -trim -antialias %f -quality 100 %O"))))
+  :defer nil
   :config
-  ;; (add-hook 'org-mode-hook #'xenops-mode) ;; Activate xenops in org-mode
-)
+  (setq xenops-reveal-on-entry t)
+  (setq xenops-math-image-scale-factor 1.6) ;; Scaling factor for SVG math images
+  (setq xenops-math-latex-process 'imagemagick)
+  (defun xenops-src-parse-at-point ()
+    "Parse 'src element at point."
+    (-if-let* ((element (xenops-parse-element-at-point 'src))
+               (org-babel-info
+		(xenops-src-do-in-org-mode
+		 (org-babel-get-src-block-info 'light (org-element-context)))))
+	(xenops-util-plist-update
+	 element
+	 :type 'src
+	 :language (nth 0 org-babel-info)
+	 :org-babel-info org-babel-info)))
+  ;; :hook org-mode
+  )
 
 (use-package org-fragtog
   :disabled ;; Seems like xenops is working again
@@ -1381,6 +1431,7 @@ With prefix ARG, prompt for browser choice."
   :after org
   :custom
   (org-latex-create-formula-image-program 'imagemagick)
+  
   :config
   (add-to-list
    'org-preview-latex-process-alist
@@ -1926,7 +1977,12 @@ Each function is called with two arguments: the tag and the buffer.")
 ;;; -> Org mode -> Anki
 
 (use-package anki-editor
+  :bind
+  (:map org-mode-map
+	("C-c n p" . my/anki-flashcard-push-current-buffer)
+	("C-c n n p" . my/anki-flashcard-push-all))
   :after org
+  :defer nil
   :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest)
   :custom
   (anki-editor-latex-style 'mathjax)
@@ -2226,10 +2282,7 @@ Each function is called with two arguments: the tag and the buffer.")
   (org-enforce-todo-dependencies t)
   (org-agenda-window-setup 'current-window)
   (org-agenda-sticky t)
-
-  :hook
-  (org-agenda-mode . js/org-agenda-fold)
-  ;; (org-agenda-mode . my/org-agenda-setup-refresh-hooks)
+  
   :bind (("C-c a" . open-org-agenda)
 	 :map org-agenda-mode-map
 	 ("o" . ace-link-org-agenda)
@@ -2802,7 +2855,7 @@ This is attached directly to database modification functions."
 	      ))
 
 (use-package elfeed-org
-  :after (elfeed org)
+  :after elfeed
   :defer nil
   :custom
   (rmh-elfeed-org-files (list (concat org-roam-directory "/elfeed.org")))
@@ -3300,7 +3353,8 @@ If a key is provided, use it instead of the default capture template."
 (use-package cdlatex
   :custom
   (cdlatex-takeover-parenthesis nil)
-
+  (cdlatex-takeover-dollar nil)
+  
   (cdlatex-command-alist
    '(("al" "Insert aligned environment" "" cdlatex-environment ("aligned") nil t)
      ("bm" "Insert bmatrix environment" "" cdlatex-environment ("bmatrix") nil t)
@@ -3308,8 +3362,19 @@ If a key is provided, use it instead of the default capture template."
      ("sse" "Insert a nice supseteq" "\\supseteq" nil nil nil t)
      ("sne" "Insert a nice subsetneq" "\\subsetneq" nil nil nil t)
      ("ssne" "Insert a nice supsetneq" "\\supsetneq" nil nil nil t)
+     ("tl" "Insert a nice triangle left" "\\lhd" nil nil nil t)
+     ("tsl" "Insert a nice triangle sub left" "\\unlhd" nil nil nil t)
+     ("tr" "Insert a nice triangle right" "\\rhd" nil nil nil t)
+     ("tsr" "Insert a nice triangle sub right" "\\unrhd" nil nil nil t)
      ("imp" "implies" "\\implies" nil nil nil t)
      ("imb" "Implied" "\\impliedby" nil nil nil t)
+     ("capd" "Inserts cap dots" "\\cap \\cdots \\cap " nil nil nil t)
+     ("cupd" "Inserts cup dots" "\\cup \\cdots \\cup " nil nil nil t)
+     ("plusd" "Inserts plus dots" "+ \\cdots + " nil nil nil t)
+     ("oplusd" "Inserts oplus dots" "\\oplus \\cdots \\oplus " nil nil nil t)
+     ("timesd" "Inserts times dots" "\\times \\cdots \\times " nil nil nil t)
+     ("otimesd" "Inserts otimes dots" "\\otimes \\cdots \\otimes " nil nil nil t)
+     ("cdotd" "Inserts cdot dots" "\\cdot \\cdots \\cdot " nil nil nil t)
      ("cupl"       "Insert \\bigcup\\limits_{}^{}"
       "\\bigcup\\limits_{?}^{}"  cdlatex-position-cursor nil nil t)
      ("prodl"       "Insert \\prod\\limits_{}^{}"
@@ -3337,6 +3402,16 @@ If a key is provided, use it instead of the default capture template."
   (org-mode . org-cdlatex-mode)
   (LaTeX-mode . turn-on-cdlatex)
   )
+
+(use-package math-delimiters
+  :load-path "~/.emacs.d/lisp/math-delimiters"
+  :bind
+  (:map org-mode-map
+	("$" . math-delimiters-insert))
+  (:map TeX-mode-map
+	("$" . math-delimiters-insert)))
+
+2. **Missing Arguments with `:load-path`**: The `:load-path` keyword should directly specify a directory or a list of directories. Ensure that the path `"~/.emacs.d/lisp/math-delimiters/"` is correct and exists.
 
 ;;; -> Programming -> Lisp
 

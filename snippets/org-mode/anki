@@ -5,6 +5,6 @@
 :PROPERTIES:
 :ANKI_NOTE_TYPE: Basic
 :ANKI_DECK: Default
-:ANKI_TAGS: ${1:Default$$(anki/my/after-snippet-tag-handler)}
+:ANKI_TAGS: `(or (anki/my/after-snippet-tag-handler) "Default")`
 :END:
 $0
