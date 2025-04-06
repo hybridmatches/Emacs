@@ -2087,6 +2087,16 @@ Each function is called with two arguments: the tag and the buffer.")
       (anki-flashcard-queue-add (buffer-file-name))
       (message "Added to Anki flashcard queue: %s" (buffer-file-name))))
 
+  (defun anki-flashcard-setup-buffer ()
+    "Set up the current buffer for flashcards if it has the 'flashcards' tag."
+    (when (and (buffer-file-name)
+               (member "flashcards" (vulpea-buffer-tags-get)))
+      ;; Add to local hook
+      (add-hook 'after-save-hook #'anki-flashcard-save-hook nil t)))
+
+  ;; Add this function to org-mode-hook
+  (add-hook 'org-mode-hook #'anki-flashcard-setup-buffer)
+
   ;; Hook functions for tag changes
   (defun anki-flashcard-tag-added (tag buffer)
     "Add save hook when TAG 'flashcards' is added to BUFFER."
@@ -3396,7 +3406,8 @@ If a key is provided, use it instead of the default capture template."
 
   (cdlatex-math-symbol-alist
    '((?o ("\\omega" "\\circ"))
-     (?O ("\\Omega" "\\degree"))))
+     (?O ("\\Omega" "\\degree"))
+     (?*  ("\\times" "\\bullet"))))
 
   :hook
   (org-mode . org-cdlatex-mode)

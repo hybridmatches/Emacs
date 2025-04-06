@@ -3,8 +3,5 @@
 
 (setq anki-flashcard-queue
   '(
-    "20220324201721-integral_domain.org"
-    "20220227181717-maksimalen_ideal.org"
-    "20220324235736-praideal.org"
     "20240929173550-komutativna_algebra.org"
   ))
