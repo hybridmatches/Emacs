@@ -693,7 +693,31 @@ between Emacs sessions.")
     "Ace jump to safari link with C-u prefix by default."
     (interactive)
     (let ((current-prefix-arg '(4)))  ; Simulate C-u
-      (call-interactively 'ace-link-eww))))
+      (call-interactively 'ace-link-eww)))
+
+  (defun my/ace-link-org-agenda-urls ()
+    "Open visible links (not just agenda items) in the Org Agenda buffer."
+    (interactive)
+    (let (link-candidates pt)
+      ;; Collect visible links in the agenda buffer
+      (save-excursion
+	(goto-char (window-start))
+	(while (re-search-forward org-link-any-re (window-end) t)
+          (push (cons (match-string-no-properties 0)
+                      (match-beginning 0))
+		link-candidates)))
+      
+      ;; Use avy to let the user choose a link
+      (setq pt (avy-with custom-ace-link-org-agenda
+		 (avy-process 
+                  (mapcar #'cdr (nreverse link-candidates))
+                  (avy--style-fn avy-style))))
+      
+      ;; Open the selected link
+      (when pt
+	(goto-char pt)
+	(org-open-at-point))))
+  )
 
 (use-package crux
   :bind (([remap kill-line] . crux-smart-kill-line)
@@ -1407,6 +1431,9 @@ Automatically expands the heading if it's folded."
 (use-package xenops
   :after org
   :defer nil
+  :bind
+  (:map org-mode-map
+	("C-c n !" . xenops-mode))
   :config
   (setq xenops-reveal-on-entry t)
   (setq xenops-math-image-scale-factor 1.6) ;; Scaling factor for SVG math images
@@ -1426,11 +1453,14 @@ Automatically expands the heading if it's folded."
   )
 
 (use-package org-fragtog
-  :disabled ;; Seems like xenops is working again
+  ;; :disabled ;; Seems like xenops is working again
+  ;; Not disabled but unhooked - I set some C-c C-x C-l stuff here 
   :defer nil
   :after org
   :custom
   (org-latex-create-formula-image-program 'imagemagick)
+  (org-latex-packages-alist '(("" "/Users/jure/.emacs.d/defaults/js" t)))
+  (org-export-in-background t)
   
   :config
   (add-to-list
@@ -1557,7 +1587,7 @@ Automatically expands the heading if it's folded."
   (setq org-roam-capture-templates
       '(("d" "default" plain
          "%?"
-         :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n")
+         :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+startup: content")
          :unnarrowed t)
         ))
 
@@ -1640,13 +1670,12 @@ Automatically expands the heading if it's folded."
       (org-link-make-string (concat "id:" id) description)))
 
   (defun js/retrieve-url (&optional browser)
-    "Retrieve the URL of the given browser page as a string. Defaults to Orion"
+    "Retrieve the URL of the given browser page as a string. Defaults to Safari"
     (if browser
 	(pcase browser
-	  ('Orion (do-applescript "tell application \"Orion\" to return URL of document 1"))
 	  ('Safari (do-applescript "tell application \"Safari\" to return URL of document 1"))
 	  (_ (message "Browser not supported!")))
-      (do-applescript "tell application \"Orion\" to return URL of document 1"))
+      (do-applescript "tell application \"Safari\" to return URL of document 1"))
     )
 
   (defun js/log-page (&optional browser)
@@ -1980,7 +2009,8 @@ Each function is called with two arguments: the tag and the buffer.")
   :bind
   (:map org-mode-map
 	("C-c n p" . my/anki-flashcard-push-current-buffer)
-	("C-c n n p" . my/anki-flashcard-push-all))
+	("C-c n n p" . my/anki-flashcard-push-all)
+	("C-c n q" . anki-flashcard-queue-display))
   :after org
   :defer nil
   :vc (:url "https://github.com/anki-editor/anki-editor" :rev :newest)
@@ -2008,7 +2038,117 @@ Each function is called with two arguments: the tag and the buffer.")
 
   (tags/make-db-searcher "flashcards")
 
-  ;; Anki Flashcard Queue System
+  ;;; -> Org mode -> Anki -> Overrides
+  
+  ;; Define environments that should always use Anki builtin LaTeX
+  (defcustom anki-editor-builtin-latex-environments '("tikzcd")
+    "LaTeX environments that will always be translated using Anki's built-in LaTeX.
+This is useful for environments not supported by MathJax."
+    :type '(repeat string))
+
+  ;; Helper function to detect if code contains a builtin-only environment
+  (defun anki-editor--contains-builtin-env (latex-code)
+    "Check if LATEX-CODE contains any environment that should use builtin LaTeX."
+    (cl-some (lambda (env) 
+               (string-match-p (format "\\\\begin{%s}" env) latex-code)) 
+             anki-editor-builtin-latex-environments))
+
+  ;; Override the ox-latex function to handle special environments
+  (defun anki-editor--ox-latex (latex _contents _info)
+    "Transcode LATEX from Org to HTML.
+CONTENTS is nil. INFO is a plist holding contextual information."
+    (let* ((code (org-remove-indentation (org-element-property :value latex)))
+           (original-style anki-editor-latex-style)
+           (contains-special-env (anki-editor--contains-builtin-env code)))
+      
+      ;; Temporarily override style if needed
+      (when (and (eq original-style 'mathjax) contains-special-env)
+	(setq anki-editor-latex-style 'builtin))
+      
+      ;; Process the LaTeX code
+      (setq code (cl-ecase (org-element-type latex)
+                   (latex-fragment (anki-editor--translate-latex-fragment code))
+                   (latex-environment (anki-editor--translate-latex-env code))))
+      
+      ;; Restore original style
+      (setq anki-editor-latex-style original-style)
+      
+      ;; Return processed code
+      (if anki-editor-break-consecutive-braces-in-latex
+          (replace-regexp-in-string "}}" "} } " code)
+	code)))
+
+  
+  (defun anki-editor-note-at-point ()
+    "Make a note struct from current entry with modified field handling.
+The front of the note will be the heading unless a '** Front' subheading exists.
+The back field will be only the content before any subheadings unless a '** Back' subheading exists.
+All other subheadings will be ignored."
+    (let* ((deck (org-entry-get-with-inheritance anki-editor-prop-deck))
+           (note-id (org-entry-get nil anki-editor-prop-note-id))
+           (hash (org-entry-get nil anki-editor-prop-note-hash))
+           (note-type (or (org-entry-get nil anki-editor-prop-note-type)
+                          anki-editor-default-note-type))
+           (tags (cl-set-difference (anki-editor--get-tags)
+                                    anki-editor-ignored-org-tags
+                                    :test #'string=))
+           (heading (substring-no-properties (org-get-heading t t t t)))
+           (content-before-subheading (anki-editor--note-contents-before-subheading))
+           (front-field nil)
+           (back-field nil)
+           (fields '()))
+      
+      ;; Look for Front and Back subheadings
+      (save-excursion
+	(when (org-goto-first-child)
+          (cl-loop
+           for element = (org-element-at-point)
+           for subheading = (substring-no-properties
+                             (org-element-property :raw-value element))
+           for begin = (save-excursion (anki-editor--skip-drawer element))
+           for end = (org-element-property :contents-end element)
+           for content = (and begin end 
+                              (buffer-substring-no-properties
+                               begin (min (point-max) end)))
+           when (string= subheading "Front")
+           do (setq front-field content)
+           when (string= subheading "Back")
+           do (setq back-field content)
+           while (org-get-next-sibling))))
+      
+      ;; If Front/Back not explicitly defined, use defaults
+      (unless front-field
+	(setq front-field heading))
+      (unless back-field
+	(setq back-field content-before-subheading))
+      
+      ;; Build fields alist based on note type
+      (cond
+       ;; For Basic note type
+       ((string= note-type "Basic")
+	(setq fields (list (cons "Front" front-field)
+                           (cons "Back" back-field))))
+       
+       ;; For other note types, you might need to customize further
+       (t
+	(setq fields (list (cons "Front" front-field)
+                           (cons "Back" back-field)))))
+      
+      ;; Sort fields (as in the original function)
+      (setq fields (sort fields (lambda (a b) (string< (car a) (car b)))))
+      
+      (unless deck (user-error "Missing deck"))
+      (unless note-type (user-error "Missing note type"))
+      
+      (make-anki-editor-note :id note-id
+                             :model note-type
+                             :deck deck
+                             :tags tags
+                             :fields fields
+                             :hash hash
+                             :marker (point-marker))))
+
+  ;;; -> Org mode -> Anki -> Flashcard Queue System
   (defvar anki-flashcard-queue-file
     (expand-file-name "anki-flashcard-queue.el" 
                       (expand-file-name "lisp" user-emacs-directory))
@@ -2276,7 +2416,7 @@ Each function is called with two arguments: the tag and the buffer.")
   :defer t
   :custom
   (org-todo-keywords
-   '((sequence "TODO(t)" "NEXT(n)" "PROCESS(p)" "PROJECT(P)" "ACTIVE(a)" "EXPLORE(e)" "HOLD(h)" "COURSE(C)"
+   '((sequence "TODO(t)" "NEXT(n)" "PROCESS(p)" "PROJECT(P)" "ACTIVE(a)" "EXPLORE(e)" "HOLD(h)" "COURSE(C)" "EXAM(E)"
 	       "|" "DONE(d)" "CANCELLED(c)" "FAILED(F)" "NAREDU(N)")))
 
   (org-agenda-start-with-log-mode t)
@@ -2296,6 +2436,7 @@ Each function is called with two arguments: the tag and the buffer.")
   :bind (("C-c a" . open-org-agenda)
 	 :map org-agenda-mode-map
 	 ("o" . ace-link-org-agenda)
+	 ("M-o" . my/ace-link-org-agenda-urls)
 	 ;; This one doesn't change the view
 	 ("g" . org-agenda-redo)
 	 ("r" . roam-agenda-files-update)
@@ -2306,6 +2447,7 @@ Each function is called with two arguments: the tag and the buffer.")
 	 )
   
   :config
+  (add-to-list 'warning-suppress-types '(org-element))
   (tags/make-db-searcher "project")
 
   (defun roam-agenda-files-update (&rest _)
@@ -2380,6 +2522,7 @@ Each function is called with two arguments: the tag and the buffer.")
 			((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
 			 (org-agenda-overriding-header "* High-priority unfinished tasks:")))
 		  (todo "COURSE" ((org-agenda-overriding-header "* Active courses: ")))
+		  (todo "EXAM" ((org-agenda-overriding-header "* Looming exams: ")))
 		  (todo "ACTIVE" ((org-agenda-overriding-header "* Active projects: ")))
 		  (todo "PROJECT" ((org-agenda-overriding-header "* Projects: ")))
 		  (todo "NEXT" ((org-agenda-skip-function '(or (air-org-skip-subtree-if-priority ?A)
@@ -2393,7 +2536,7 @@ Each function is called with two arguments: the tag and the buffer.")
 				     (air-org-skip-subtree-if-priority ?A)
                                      (air-org-skip-if-blocked)
 				     (org-agenda-skip-if nil '(scheduled deadline))
-				     (org-agenda-skip-entry-if 'todo '("NEXT" "ACTIVE" "HOLD" "PROCESS" "EXPLORE" "PROJECT" "COURSE"))
+				     (org-agenda-skip-entry-if 'todo '("NEXT" "ACTIVE" "HOLD" "PROCESS" "EXPLORE" "PROJECT" "COURSE" "EXAM"))
 				     (air-org-skip-subtree-if-ancestor-is-hold)))
 			       (org-agenda-overriding-header "* All normal priority tasks:")))
 		  (todo "HOLD" ((org-agenda-overriding-header "* Currently on hold: ")))
@@ -2412,7 +2555,7 @@ Each function is called with two arguments: the tag and the buffer.")
   (org-src-fontify-natively t)
   (org-src-tab-acts-natively t)
   (org-src-preserve-indentation t)
-  (org-latex-packages-alist '(("" "/Users/jure/.emacs.d/defaults/js" t)))
+  
 
   :config
   (require 'org-tempo)
@@ -2482,9 +2625,6 @@ Each function is called with two arguments: the tag and the buffer.")
 	 ("P" . js/log-elfeed-process)
 	 ("B" . elfeed-search-browse-url-firefox)
 	 ("W" . my/elfeed-entries-to-wallabag)
-
-	 ("Y" . my/elfeed-force-push)
-	 ("R" . my/elfeed-force-pull)
 	 
          :map elfeed-show-mode-map
          ("SPC" . elfeed-scroll-up-command)
@@ -3093,7 +3233,7 @@ If a key is provided, use it instead of the default capture template."
 
 (use-package wallabag
   :defer t
-  :load-path "~/.emacs.d/lisp/wallabag/"
+  ;; :load-path "~/.emacs.d/lisp/wallabag/"
   :after request emacsql
   :bind (("C-x W" . wallabag)
          :map wallabag-search-mode-map
@@ -3360,6 +3500,7 @@ If a key is provided, use it instead of the default capture template."
   (LaTeX-mode . turn-on-reftex)
   )
 
+;;; -> Programming -> LaTeX -> CDLaTeX
 (use-package cdlatex
   :custom
   (cdlatex-takeover-parenthesis nil)
@@ -3368,16 +3509,25 @@ If a key is provided, use it instead of the default capture template."
   (cdlatex-command-alist
    '(("al" "Insert aligned environment" "" cdlatex-environment ("aligned") nil t)
      ("bm" "Insert bmatrix environment" "" cdlatex-environment ("bmatrix") nil t)
+     
      ("se" "Insert a nice subseteq" "\\subseteq" nil nil nil t)
      ("sse" "Insert a nice supseteq" "\\supseteq" nil nil nil t)
      ("sne" "Insert a nice subsetneq" "\\subsetneq" nil nil nil t)
      ("ssne" "Insert a nice supsetneq" "\\supsetneq" nil nil nil t)
      ("tl" "Insert a nice triangle left" "\\lhd" nil nil nil t)
-     ("tsl" "Insert a nice triangle sub left" "\\unlhd" nil nil nil t)
+     ("tse" "Insert a nice triangle sub left" "\\unlhd" nil nil nil t)
+     ("tsne" "Insert a nice triangle sub left" "\\unlhd" nil nil nil t)
      ("tr" "Insert a nice triangle right" "\\rhd" nil nil nil t)
-     ("tsr" "Insert a nice triangle sub right" "\\unrhd" nil nil nil t)
+     ("tsse" "Insert a nice triangle sub right" "\\unrhd" nil nil nil t)
      ("imp" "implies" "\\implies" nil nil nil t)
      ("imb" "Implied" "\\impliedby" nil nil nil t)
+     ("le" "leq" "\\leq" nil nil nil t)
+     ("ge" "geq" "\\geq" nil nil nil t)
+
+     ("or" "text or in math" "\\text{ or }" nil nil nil t)
+     ("and" "text and in math" "\\text{ and }" nil nil nil t)
+     
+     
      ("capd" "Inserts cap dots" "\\cap \\cdots \\cap " nil nil nil t)
      ("cupd" "Inserts cup dots" "\\cup \\cdots \\cup " nil nil nil t)
      ("plusd" "Inserts plus dots" "+ \\cdots + " nil nil nil t)
@@ -3385,6 +3535,20 @@ If a key is provided, use it instead of the default capture template."
      ("timesd" "Inserts times dots" "\\times \\cdots \\times " nil nil nil t)
      ("otimesd" "Inserts otimes dots" "\\otimes \\cdots \\otimes " nil nil nil t)
      ("cdotd" "Inserts cdot dots" "\\cdot \\cdots \\cdot " nil nil nil t)
+     ("sed" "Inserts subset dots" "\\subseteq \\cdots \\subseteq " nil nil nil t)
+     ("ssed" "Inserts superset dots" "\\supseteq \\cdots \\supseteq " nil nil nil t)
+     ("sned" "Inserts subsetneq dots" "\\subsetneq \\cdots \\subsetneq " nil nil nil t)
+     ("ssned" "Inserts supersetneq dots" "\\supsetneq \\cdots \\supsetneq " nil nil nil t)
+     ("leqd" "Inserts leq dots" "\\leq \\cdots \\leq " nil nil nil t)
+     ("geqd" "Inserts geq dots" "\\geq \\cdots \\geq " nil nil nil t)
+     
+
+     ("osuml"       "Insert \\bigoplus\\limits_{}^{}"
+      "\\bigoplus\\limits_{?}^{}"  cdlatex-position-cursor nil nil t)
+     ("oprodl"       "Insert \\bigotimes\\limits_{}^{}"
+      "\\bigotimes\\limits_{?}^{}"  cdlatex-position-cursor nil nil t)
+     ("cupl"       "Insert \\bigcup\\limits_{}^{}"
+      "\\bigcup\\limits_{?}^{}"  cdlatex-position-cursor nil nil t)
      ("cupl"       "Insert \\bigcup\\limits_{}^{}"
       "\\bigcup\\limits_{?}^{}"  cdlatex-position-cursor nil nil t)
      ("prodl"       "Insert \\prod\\limits_{}^{}"
@@ -3402,17 +3566,22 @@ If a key is provided, use it instead of the default capture template."
      (?a    "\\norm"          nil        t   nil nil )
      (?h    "\\ch"          nil        t   nil nil )
      (?t "\\text" nil t nil nil)
-     (?o "\\mathring" nil t nil nil)))
+     (?o "\\mathring" nil t nil nil)
+     ( ?C    "\\mathcal"           nil        t   nil nil )
+     ))
 
   (cdlatex-math-symbol-alist
    '((?o ("\\omega" "\\circ"))
      (?O ("\\Omega" "\\degree"))
-     (?*  ("\\times" "\\bullet"))))
+     (?+  ("\\cup" "\\oplus"))
+     (?*  ("\\times" "\\otimes" "\\bullet"))))
 
   :hook
   (org-mode . org-cdlatex-mode)
   (LaTeX-mode . turn-on-cdlatex)
   )
+
+;;; -> Programming -> LaTeX -> Math delimiters
 
 (use-package math-delimiters
   :load-path "~/.emacs.d/lisp/math-delimiters"
@@ -3420,9 +3589,9 @@ If a key is provided, use it instead of the default capture template."
   (:map org-mode-map
 	("$" . math-delimiters-insert))
   (:map TeX-mode-map
-	("$" . math-delimiters-insert)))
-
-2. **Missing Arguments with `:load-path`**: The `:load-path` keyword should directly specify a directory or a list of directories. Ensure that the path `"~/.emacs.d/lisp/math-delimiters/"` is correct and exists.
+	("$" . math-delimiters-insert))
+  :custom
+  (math-delimiters-compressed-display-math nil))
 
 ;;; -> Programming -> Lisp
 
