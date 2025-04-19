@@ -1,4 +1,4 @@
-;;; init.el --- Jure Smolar's Emacs config ;;; -*- lexical-binding: t; -*-
+;;; init.el --- Miha Reja's Emacs config ;;; -*- lexical-binding: t; -*-
 ;;;
 ;;; Commentary:
 ;;;
