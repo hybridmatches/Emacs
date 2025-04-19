@@ -270,43 +270,6 @@ between Emacs sessions.")
 (use-package symbol-overlay
   :hook prog-mode)
 
-;;; Try to figure out shrface
-;; (use-package shrface
-;;   :ensure t
-;;   :defer t
-;;   :init
-;;   ;; Add shrface directory to load path - this happens at startup
-;;   (add-to-list 'load-path (expand-file-name "lisp/shrface" user-emacs-directory))
-  
-;;   :custom
-;;   ;; Basic settings
-;;   (shr-cookie-policy nil)
-;;   (shrface-bullets-bullet-list '("▼" "▽" "▿" "▾"))
-;;   (shrface-href-versatile t)
-;;   (shrface-toggle-bullets nil)
-  
-;;   :hook
-;;   ;; Hook for outline view changes
-;;   (outline-view-change . shrface-outline-visibility-changed)
-  
-;;   :config
-;;   ;; Language detection for code blocks
-;;   (require 'shr-tag-pre-highlight)
-;;   (setq shr-tag-pre-highlight-lang-modes
-;;         '(("ocaml" . tuareg) ("elisp" . emacs-lisp) ("ditaa" . artist)
-;;           ("asymptote" . asy) ("dot" . fundamental) ("sqlite" . sql)
-;;           ("calc" . fundamental) ("C" . c) ("cpp" . c++) ("C++" . c++)
-;;           ("screen" . shell-script) ("shell" . sh) ("bash" . sh)
-;;           ("rust" . rustic) ("awk" . bash) ("json" . js)
-;;           ("emacslisp" . emacs-lisp) ("el" . emacs-lisp)))
-  
-;;   ;; Load integrations
-;;   (require 'shrface-core)
-;;   (require 'shrface-wiki-summary)
-;;   (require 'shrface-wallabag)
-;;   (require 'shrface-eww)
-;;   (require 'shrface-elfeed))
-
 ;; Keeps windows still when opening minibuffers
 (use-package sinister
   :vc (:url "https://github.com/positron-solutions/sinister")
